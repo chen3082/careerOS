@@ -374,7 +374,7 @@ function Auth({ onLogin }: { onLogin: (u: Row) => void }) {
               ? "從真實的你開始，慢慢建立完整的職涯紀錄。"
               : "你的經驗、機會與下一步，都在這裡。"}
           </p>
-          <details className="onboarding-note" open={register}>
+          <details className="onboarding-note" open>
             <summary>開始前，需要準備什麼？</summary>
             <p>
               先建立 CareerOS 帳戶，保存你的經驗與履歷。Google
@@ -386,8 +386,9 @@ function Auth({ onLogin }: { onLogin: (u: Row) => void }) {
               Email 或手機驗證。
             </p>
             <p>
-              目前可使用經驗庫、多版履歷與手動投遞追蹤。LinkedIn／104
-              自動送出、代註冊公司帳戶仍未開通。
+              可使用經驗庫、多版履歷、手動投遞追蹤與帳戶準備。登入／註冊協助需要連接具備瀏覽器操作能力的
+              AI 助理；密碼與驗證由你在原站完成。LinkedIn／104
+              自動送出仍未開通。
             </p>
           </details>
           <form
@@ -1798,7 +1799,8 @@ function Applications() {
             和需要本人確認的條款會明確交由你處理。
           </p>
           <p>
-            目前請先在原站登入／註冊及送出，再用「手動新增已投遞」記錄；代註冊與正式自動投遞尚未開通。
+            可先點「登入／註冊準備」，讓已連接且具備瀏覽器工具的 AI
+            助理協助；驗證後回來繼續。正式自動投遞尚未開通，請在原站送出，再用「手動新增已投遞」記錄。
           </p>
         </details>
         {rows.length ? (
