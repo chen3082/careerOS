@@ -714,6 +714,12 @@ try {
     .filter({ hasText: "New Public Board" })
     .waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(
+    () =>
+      document.querySelector(".sidebar")!.getBoundingClientRect().right <= 1,
+  );
+  if (await page.locator(".toast button").count())
+    await page.locator(".toast button").click();
   await page.screenshot({
     path: output + "/catalog-mobile.png",
     fullPage: true,

@@ -1620,6 +1620,11 @@ td .text-button span {
   }
   .catalog .filters {
     width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .catalog .filters input {
+    grid-column: 1 / -1;
   }
   .catalog .filters input,
   .catalog .filters select {
