@@ -1,4 +1,4 @@
-// Runs in a separate, time- and memory-bounded process. No application secrets or DB access.
+// Runs with a deadline and a bounded JS heap; application credentials are not inherited through the environment.
 import mammoth from "mammoth";
 const chunks: Buffer[] = [];
 for await (const c of process.stdin) chunks.push(Buffer.from(c));

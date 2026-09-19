@@ -36,9 +36,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils fonts-noto-cjk
       - run: npm run build
       - run: npm test
       - run: npm run migrate
       - run: npm run test:integration
       - run: node --import tsx tests/browser.ts
+      - run: node --import tsx tests/worker-smoke.ts --offline
       - run: npm audit --audit-level=high

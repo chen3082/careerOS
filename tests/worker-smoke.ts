@@ -24,14 +24,17 @@ const parsed = await one(
     JSON.stringify({ assetId: asset.id, sourceId: source.id }),
   ],
 );
-const search = await tx((db) =>
-  newTask(db, asset.owner_id, "search_jobs", {
-    provider: "lever",
-    board: "Gogolook",
-    market: "TW",
-    query: "",
-  }),
-);
+const search = process.argv.includes("--offline")
+  ? undefined
+  : await tx((db) =>
+      newTask(db, asset.owner_id, "search_jobs", {
+        provider: "lever",
+        board: "Gogolook",
+        market: "TW",
+        query: "",
+      }),
+    );
+const taskIds = search ? [parsed.id, search.id] : [parsed.id];
 const child = spawn(process.execPath, ["--import", "tsx", "server/worker.ts"], {
   env: { ...process.env, NODE_ENV: "test" },
   stdio: "inherit",
@@ -49,7 +52,7 @@ try {
     rows = (
       await pool.query(
         "SELECT id,kind,status,error,result FROM tasks WHERE id=ANY($1::uuid[])",
-        [[parsed.id, search.id]],
+        [taskIds],
       )
     ).rows;
     if (rows.every((t) => ["succeeded", "failed"].includes(t.status))) break;
@@ -63,6 +66,7 @@ try {
     source.id,
   ]);
   assert.match(document.content, /browser@example\.test/);
+  assert.match(document.content, /驗收使用者/);
   console.log(
     JSON.stringify({
       workerTasks: rows.map((t) => ({ kind: t.kind, status: t.status })),

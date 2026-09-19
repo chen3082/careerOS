@@ -124,14 +124,19 @@ async function parseDocument(t: any) {
       },
     );
     let out = "";
+    let outputExceeded = false;
+    child.stdout.setEncoding("utf8");
     child.stdout.on("data", (b) => {
-      out += b.toString();
-      if (out.length > 150000) child.kill("SIGKILL");
+      if (outputExceeded) return;
+      if (out.length + b.length > 150000) {
+        outputExceeded = true;
+        child.kill("SIGKILL");
+      } else out += b;
     });
     child.stderr.resume();
     child.on("error", reject);
-    child.on("exit", (code) =>
-      code === 0
+    child.on("close", (code) =>
+      code === 0 && !outputExceeded
         ? resolve(out)
         : reject(new DomainError("DOCUMENT_PARSE_FAILED", 422)),
     );

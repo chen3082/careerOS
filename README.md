@@ -57,6 +57,8 @@ docker-compose up -d web worker
 
 本機開發：啟動 PostgreSQL，設定環境變數後 `npm ci && npm run migrate && npm run build && npm start`，另一個程序執行 `npm run worker`。Vite 開發服務使用 `npm run dev:web`。
 
+若不使用 Docker，還需安裝 Playwright Chromium（`npx playwright install --with-deps chromium`）、CJK 字型、FFmpeg 與 Poppler 的 `pdftotext`；容器已包含這些文件匯出、語音解碼及 PDF 解析依賴。
+
 ## 驗證
 
 ```bash

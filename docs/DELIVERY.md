@@ -12,6 +12,8 @@
 | 官方 MCP SDK | 真實 HTTP PKCE、scope、一次性 code、refresh reuse、讀写工具界線通過 |
 | 文件 | PDF、DOCX、Markdown 含聯絡 email；兩次下載 PDF／DOCX 位元相同；跨帳號下載拒絕 |
 | Chromium UI | 註冊→經驗→履歷確認→PDF→匯入職缺→申請草稿；1440×1050 桌面、390×844 手機；無 page error |
+| 背景 worker | 真實佇列的中文字型 PDF 解析與台灣職缺搜尋均 succeeded；原解析器記憶體問題已修正 |
+| GitHub CI | build、unit、PostgreSQL 整合、瀏覽器與 dependency audit 通過；另納入 PDF worker 回歸 |
 | 獨立 agent | 7 項具體 finding 已修正；切換有資料頁面及 A→B 帳戶的隔離回歸獨立通過 |
 | 台灣公開職缺 | Lever Gogolook 實際取得 11 份台灣職缺（當次來源共 12 份） |
 | 美國公開職缺 | Greenhouse Figma 的 engineer 搜尋實際取得 74 份美國職缺（當次來源共 152 份） |
