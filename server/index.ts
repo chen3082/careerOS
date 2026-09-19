@@ -14,6 +14,7 @@ import { groupRoutes } from "./groups.js";
 import { assetRoutes } from "./assets.js";
 import { mcpRoutes } from "./mcp.js";
 import { googleRoutes } from "./google.js";
+import { accountSetupRoutes } from "./account-setup.js";
 import { accountRoutes } from "./account.js";
 import { googleLoginRoutes, type GoogleVerifier } from "./google-login.js";
 import {
@@ -122,6 +123,7 @@ export async function buildApp(
   await assetRoutes(app);
   await googleRoutes(app);
   await accountRoutes(app);
+  await accountSetupRoutes(app);
   await mcpRoutes(app);
   app.get(config.basePath + "/api/signals", async (req) => {
     const u = await requireUser(req);

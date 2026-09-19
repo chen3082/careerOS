@@ -1525,3 +1525,36 @@ td .text-button span {
 .onboarding-note p {
   margin: 10px 0 0;
 }
+
+.account-dialog {
+  border: 1px solid var(--border, #ddd);
+  color: inherit;
+  max-height: 90vh;
+  margin: auto;
+  overflow-y: auto;
+}
+.account-dialog::backdrop {
+  background: #18201b88;
+}
+.account-dialog form {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0;
+}
+.account-dialog .check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.account-dialog .check input {
+  width: auto;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.account-execution,
+.account-run {
+  margin-top: 20px;
+}
+.account-dialog textarea {
+  width: 100%;
+}

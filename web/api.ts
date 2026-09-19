@@ -8,6 +8,16 @@ export class ApiError extends Error {
   }
 }
 const labels: Record<string, string> = {
+  ACCOUNT_SPECIFIC_JOB_REQUIRED: "請使用單一職缺網址，不是公司首頁或動態牆",
+  ACCOUNT_UNSUPPORTED_SITE: "這個網站目前尚未支援帳戶協助",
+  ACCOUNT_SETUP_CLAIMED_OR_CHANGED:
+    "任務已更新或由其他助理領取，請重新檢查狀態",
+  ACCOUNT_SETUP_EXPIRED: "協助授權已過期，請重新授權並安排檢查",
+  ACCOUNT_SETUP_CANCELLED: "這筆協助已停止，請建立新任務",
+  ACCOUNT_TARGET_CHANGED: "職缺網址已變更，請停止舊任務並重新建立",
+  ACCOUNT_ORIGIN_MISMATCH: "助理回報的網站與授權範圍不同",
+  ACCOUNT_IDENTITY_MISMATCH:
+    "登入的 Email 與指定申請人不同，請在原網站切換帳戶",
   LOGIN_REQUIRED: "請先登入",
   INVALID_CREDENTIALS: "Email 或密碼不正確",
   INVITE_REQUIRED: "請輸入有效的工作台邀請碼",

@@ -5,6 +5,7 @@ import React, {
   createContext,
   useContext,
 } from "react";
+import { AccountSetupDialog, AccountSetups } from "./account-setup";
 import { Privacy } from "./privacy.js";
 import { createRoot } from "react-dom/client";
 import { api, base, message, ApiError } from "./api";
@@ -33,6 +34,7 @@ const names: Record<string, string> = {
   collections: "職缺分組",
   groups: "求職小組",
   applications: "投遞中心",
+  accounts: "網站帳戶準備",
   interviews: "面試與面經",
   offers: "Offer 紀錄",
   tasks: "Agent 任務",
@@ -1162,7 +1164,8 @@ function Resumes() {
   );
 }
 function Jobs() {
-  const { data: d, run, form, go } = useApp();
+  const { data: d, run, form, go, user } = useApp();
+  const [accountJob, setAccountJob] = useState<string | null>(null);
   const [q, setQ] = useState(""),
     [market, setMarket] = useState(""),
     [detail, setDetail] = useState<Row | null>(null);
@@ -1304,6 +1307,17 @@ function Jobs() {
   };
   return (
     <>
+      {accountJob && (
+        <AccountSetupDialog
+          jobId={accountJob}
+          user={user}
+          close={() => setAccountJob(null)}
+        />
+      )}
+      <div className="notice">
+        加入職缺後，先檢查登入／註冊需求。CareerOS
+        帳戶不等於公司招募帳戶；有些網站需先驗證 Email，才能送出申請。
+      </div>
       <div className="action-bar">
         <div className="filters">
           <input
@@ -1368,6 +1382,12 @@ function Jobs() {
               </div>
               <div className="actions">
                 <button onClick={() => apply(j)}>準備申請</button>
+                <button
+                  className="secondary"
+                  onClick={() => setAccountJob(j.id)}
+                >
+                  登入／註冊準備
+                </button>
                 <button className="secondary" onClick={() => collect(j)}>
                   加入分組
                 </button>
@@ -1454,6 +1474,7 @@ function Jobs() {
 
 function Applications() {
   const { data: d, run, form, go, user } = useApp();
+  const [accountJob, setAccountJob] = useState<string | null>(null);
   const [detail, setDetail] = useState<Row | null>(null);
   const [submission, setSubmission] = useState<Row | null>(null);
   const [submissionChecked, setSubmissionChecked] = useState(false);
@@ -1719,6 +1740,13 @@ function Applications() {
   };
   return (
     <>
+      {accountJob && (
+        <AccountSetupDialog
+          jobId={accountJob}
+          user={user}
+          close={() => setAccountJob(null)}
+        />
+      )}
       <Notice>
         <strong>自動投遞尚未完成真實平台驗收</strong>
         <p>
@@ -1837,6 +1865,12 @@ function Applications() {
                           onClick={() => run(() => inspectSubmission(a))}
                         >
                           檢查投遞
+                        </button>
+                        <button
+                          className="secondary small"
+                          onClick={() => setAccountJob(a.job_id)}
+                        >
+                          登入／註冊準備
                         </button>
                         {!a.submitted_at && (
                           <button
@@ -3963,6 +3997,7 @@ const endpoints: Record<string, string> = {
   collections: "/collections",
   groups: "/groups",
   applications: "/applications",
+  accounts: "/account-setups",
   interviews: "/interviews",
   offers: "/offers",
   tasks: "/tasks",
@@ -4101,6 +4136,7 @@ function App() {
           "jobs",
           "resumes",
           "applications",
+          "accounts",
           "interviews",
           "career",
         ].includes(route) &&
@@ -4137,6 +4173,9 @@ function App() {
     resumes: <Resumes />,
     jobs: <Jobs />,
     applications: <Applications />,
+    accounts: (
+      <AccountSetups items={data.items ?? []} user={user} onChanged={reload} />
+    ),
     interviews: <Interviews />,
     offers: <Offers />,
     collections: <Collections />,

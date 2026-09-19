@@ -24,6 +24,7 @@ export async function accountRoutes(app: FastifyInstance) {
       "application_events",
       "dossiers",
       "submission_runs",
+      "account_setup_runs",
       "interviews",
       "preparations",
       "interview_notes",
@@ -43,6 +44,9 @@ export async function accountRoutes(app: FastifyInstance) {
         await pool.query(`SELECT * FROM ${table} WHERE owner_id=$1`, [u.id])
       ).rows;
     }
+    data.account_setup_runs = data.account_setup_runs.map(
+      ({ claim_id, ...run }: any) => run,
+    );
     data.assets = data.assets.map(({ storage_key, ...a }: any) => ({
       ...a,
       downloadUrl: config.PUBLIC_URL + "/api/assets/" + a.id,
