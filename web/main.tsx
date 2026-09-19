@@ -5,6 +5,8 @@ import React, {
   createContext,
   useContext,
 } from "react";
+import { AccountSetupDialog, AccountSetups } from "./account-setup";
+import { JobCatalog } from "./job-catalog";
 import { Privacy } from "./privacy.js";
 import { createRoot } from "react-dom/client";
 import { api, base, message, ApiError } from "./api";
@@ -33,6 +35,7 @@ const names: Record<string, string> = {
   collections: "職缺分組",
   groups: "求職小組",
   applications: "投遞中心",
+  accounts: "網站帳戶準備",
   interviews: "面試與面經",
   offers: "Offer 紀錄",
   tasks: "Agent 任務",
@@ -54,6 +57,14 @@ const statuses: Record<string, string> = {
   queued: "等待執行",
   running: "執行中",
   waiting_client: "待你的 AI 助理處理",
+  submission_unknown: "送出結果待查證",
+  outcome_unknown: "送出結果待查證",
+  prepared: "待審閱送出內容",
+  approved: "已授權待送出",
+  sending: "送出中",
+  confirmed: "接收端已確認",
+  needs_input: "需要補充資料",
+  failed_safe: "尚未送出",
   succeeded: "完成",
   failed: "需要處理",
   received: "待決定",
@@ -364,7 +375,7 @@ function Auth({ onLogin }: { onLogin: (u: Row) => void }) {
               ? "從真實的你開始，慢慢建立完整的職涯紀錄。"
               : "你的經驗、機會與下一步，都在這裡。"}
           </p>
-          <details className="onboarding-note" open={register}>
+          <details className="onboarding-note" open>
             <summary>開始前，需要準備什麼？</summary>
             <p>
               先建立 CareerOS 帳戶，保存你的經驗與履歷。Google
@@ -376,8 +387,9 @@ function Auth({ onLogin }: { onLogin: (u: Row) => void }) {
               Email 或手機驗證。
             </p>
             <p>
-              目前可使用經驗庫、多版履歷與手動投遞追蹤。LinkedIn／104
-              自動送出、代註冊公司帳戶仍未開通。
+              可使用經驗庫、多版履歷、手動投遞追蹤與帳戶準備。登入／註冊協助需要連接具備瀏覽器操作能力的
+              AI 助理；密碼與驗證由你在原站完成。LinkedIn／104
+              自動送出仍未開通。
             </p>
           </details>
           <form
@@ -1154,7 +1166,9 @@ function Resumes() {
   );
 }
 function Jobs() {
-  const { data: d, run, form, go } = useApp();
+  const [view, setView] = useState("catalog");
+  const { data: d, run, form, go, user } = useApp();
+  const [accountJob, setAccountJob] = useState<string | null>(null);
   const [q, setQ] = useState(""),
     [market, setMarket] = useState(""),
     [detail, setDetail] = useState<Row | null>(null);
@@ -1296,86 +1310,154 @@ function Jobs() {
   };
   return (
     <>
+      {accountJob && (
+        <AccountSetupDialog
+          jobId={accountJob}
+          user={user}
+          close={() => setAccountJob(null)}
+        />
+      )}
       <div className="action-bar">
-        <div className="filters">
-          <input
-            aria-label="搜尋已保存職缺"
-            placeholder="搜尋職位、公司或技能…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <select
-            aria-label="市場"
-            value={market}
-            onChange={(e) => setMarket(e.target.value)}
-          >
-            <option value="">所有市場</option>
-            <option value="TW">台灣</option>
-            <option value="US">美國</option>
-            <option value="INTL">國際</option>
-          </select>
-        </div>
-        <div className="actions">
+        <div className="actions" role="group" aria-label="職缺清單範圍">
           <button
-            className="secondary"
-            onClick={() =>
-              form({
-                title: "匯入職缺",
-                fields: jobFields,
-                submit: "保存職缺",
-                action: (v) => run(() => api("/jobs", "POST", v)),
-              })
-            }
+            className={view === "catalog" ? "" : "secondary"}
+            aria-pressed={view === "catalog"}
+            onClick={() => setView("catalog")}
           >
-            貼上職缺
+            共用職缺
           </button>
-          <button onClick={search}>搜尋新機會 →</button>
-        </div>
-      </div>
-      <div className="section-head">
-        <span className="muted">{rows.length} 個已保存機會</span>
-        <small>所有來源保留原文；履歷依據你的經驗客製。</small>
-      </div>
-      {rows.length ? (
-        <div className="job-grid">
-          {rows.map((j: Row) => (
-            <article className="card job-card" key={j.id}>
-              <div className="section-head">
-                <div className="company-logo">{j.company.slice(0, 1)}</div>
-                <Badge value={j.application_status ?? "尚未申請"} />
-              </div>
-              <p className="company-name">{j.company}</p>
-              <h2>{j.title}</h2>
-              <p className="muted">
-                {j.location || "地點待確認"} · {j.market}
-              </p>
-              <p className="excerpt">{j.description.slice(0, 160)}</p>
-              <div className="section-head">
-                <small>
-                  {j.provider} · {date(j.updated_at)}
-                </small>
-                <button className="link" onClick={() => setDetail(j)}>
-                  查看詳情 →
-                </button>
-              </div>
-              <div className="actions">
-                <button onClick={() => apply(j)}>準備申請</button>
-                <button className="secondary" onClick={() => collect(j)}>
-                  加入分組
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <section className="card">
-          <Empty
-            title="找到下一個值得投入的機會"
-            body="搜尋企業官網職缺，或把台灣與國際平台的職缺描述貼進來。"
+          <button
+            className={view === "mine" ? "" : "secondary"}
+            aria-pressed={view === "mine"}
+            onClick={() => setView("mine")}
           >
-            <button onClick={search}>開始搜尋</button>
-          </Empty>
-        </section>
+            我的職缺
+          </button>
+        </div>
+        <button
+          className="secondary"
+          onClick={() => {
+            setView("mine");
+            form({
+              title: "匯入職缺",
+              intro: "手動貼上的內容只會保存在你的私人職缺，不會加入共用清單。",
+              fields: jobFields,
+              submit: "保存職缺",
+              action: (v) => run(() => api("/jobs", "POST", v)),
+            });
+          }}
+        >
+          貼上職缺
+        </button>
+      </div>
+      {view === "catalog" && (
+        <JobCatalog
+          user={user}
+          onUse={async (catalogJob, kind) => {
+            const j = await run(
+              () => api("/catalog/jobs/" + catalogJob.id + "/save", "POST", {}),
+              "已保存到我的職缺",
+            );
+            if (kind === "apply") await apply(j);
+            else if (kind === "collect") await collect(j);
+            else if (kind === "account") setAccountJob(j.id);
+            else if (kind === "resume")
+              await run(
+                () =>
+                  api("/tasks", "POST", {
+                    kind: "generate_resume",
+                    input: {
+                      jobId: j.id,
+                      title: j.title,
+                      language: j.market === "TW" ? "zh-TW" : "en",
+                    },
+                  }),
+                "專用履歷任務已建立",
+              );
+          }}
+        />
+      )}
+      {view === "mine" && (
+        <>
+          <div className="notice">
+            加入職缺後，先檢查登入／註冊需求。CareerOS
+            帳戶不等於公司招募帳戶；有些網站需先驗證 Email，才能送出申請。
+          </div>
+          <div className="action-bar">
+            <div className="filters">
+              <input
+                aria-label="搜尋已保存職缺"
+                placeholder="搜尋職位、公司或技能…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <select
+                aria-label="市場"
+                value={market}
+                onChange={(e) => setMarket(e.target.value)}
+              >
+                <option value="">所有市場</option>
+                <option value="TW">台灣</option>
+                <option value="US">美國</option>
+                <option value="INTL">國際</option>
+              </select>
+            </div>
+            <div className="actions">
+              <button onClick={search}>搜尋新機會 →</button>
+            </div>
+          </div>
+          <div className="section-head">
+            <span className="muted">{rows.length} 個已保存機會</span>
+            <small>所有來源保留原文；履歷依據你的經驗客製。</small>
+          </div>
+          {rows.length ? (
+            <div className="job-grid">
+              {rows.map((j: Row) => (
+                <article className="card job-card" key={j.id}>
+                  <div className="section-head">
+                    <div className="company-logo">{j.company.slice(0, 1)}</div>
+                    <Badge value={j.application_status ?? "尚未申請"} />
+                  </div>
+                  <p className="company-name">{j.company}</p>
+                  <h2>{j.title}</h2>
+                  <p className="muted">
+                    {j.location || "地點待確認"} · {j.market}
+                  </p>
+                  <p className="excerpt">{j.description.slice(0, 160)}</p>
+                  <div className="section-head">
+                    <small>
+                      {j.provider} · {date(j.updated_at)}
+                    </small>
+                    <button className="link" onClick={() => setDetail(j)}>
+                      查看詳情 →
+                    </button>
+                  </div>
+                  <div className="actions">
+                    <button onClick={() => apply(j)}>準備申請</button>
+                    <button
+                      className="secondary"
+                      onClick={() => setAccountJob(j.id)}
+                    >
+                      登入／註冊準備
+                    </button>
+                    <button className="secondary" onClick={() => collect(j)}>
+                      加入分組
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <section className="card">
+              <Empty
+                title="找到下一個值得投入的機會"
+                body="搜尋企業官網職缺，或把台灣與國際平台的職缺描述貼進來。"
+              >
+                <button onClick={search}>開始搜尋</button>
+              </Empty>
+            </section>
+          )}
+        </>
       )}
       {detail && (
         <div className="overlay">
@@ -1445,9 +1527,81 @@ function Jobs() {
 }
 
 function Applications() {
-  const { data: d, run, form, go } = useApp();
+  const { data: d, run, form, go, user } = useApp();
+  const [accountJob, setAccountJob] = useState<string | null>(null);
   const [detail, setDetail] = useState<Row | null>(null);
+  const [submission, setSubmission] = useState<Row | null>(null);
+  const [submissionChecked, setSubmissionChecked] = useState(false);
   const rows = d.items ?? [];
+  const inspectSubmission = async (a: Row) => {
+    const state = await api("/applications/" + a.id + "/submissions");
+    setSubmissionChecked(false);
+    if (
+      !state.enabled ||
+      state.runs.some(
+        (r: Row) =>
+          !["cancelled", "needs_input", "failed_safe"].includes(r.status),
+      )
+    ) {
+      setSubmission({
+        ...state,
+        application: a,
+        current:
+          state.runs.find(
+            (r: Row) =>
+              !["cancelled", "needs_input", "failed_safe"].includes(r.status),
+          ) ?? state.runs[0],
+      });
+      return;
+    }
+    form({
+      title: "準備這一份投遞",
+      intro: "先檢查表單與履歷，下一步會顯示實際送出內容，尚不會送出申請。",
+      fields: [
+        {
+          name: "email",
+          label: "這次使用的帳戶 Email",
+          type: "email",
+          value: user.email,
+          required: true,
+        },
+        { name: "name", label: "姓名", value: user.name, required: true },
+        { name: "phone", label: "聯絡電話", required: true },
+      ],
+      submit: "填表並檢查內容",
+      action: (v) =>
+        run(async () => {
+          if (!a.resume_id) throw new ApiError("RESUME_REQUIRED");
+          const pdf = await fetch(
+            base + "/api/resumes/" + a.resume_id + "/export/pdf",
+          );
+          if (!pdf.ok) throw new ApiError("RESUME_PDF_REQUIRED");
+          await pdf.arrayBuffer();
+          const current = await api(
+            "/applications/" + a.id + "/submissions",
+            "POST",
+            {
+              expectedVersion: a.version,
+              accountEmail: v.email,
+              answers: {
+                Name: v.name,
+                "Email address *": v.email,
+                "Mobile phone number*": v.phone,
+                姓名: v.name,
+                電子郵件: v.email,
+                聯絡電話: v.phone,
+              },
+            },
+          );
+          setSubmission({
+            enabled: true,
+            mode: "controlled_acceptance",
+            application: a,
+            current,
+          });
+        }),
+    });
+  };
   const record = async () => {
     const resumes = await api("/resumes");
     const fileHashes = new WeakMap<File, string>();
@@ -1640,12 +1794,19 @@ function Applications() {
   };
   return (
     <>
+      {accountJob && (
+        <AccountSetupDialog
+          jobId={accountJob}
+          user={user}
+          close={() => setAccountJob(null)}
+        />
+      )}
       <Notice>
-        <strong>自己投遞，也能集中追蹤</strong>
+        <strong>自動投遞尚未完成真實平台驗收</strong>
         <p>
-          已在求職平台、公司官網或 Email
-          送出的申請，可以直接手動新增。記下當時的履歷與投遞時間，後續面試、面經與
-          offer 都接在同一筆紀錄。
+          LinkedIn、104
+          的正式自動送出目前未開通。保存快照、產生履歷或建立申請，都不代表已投遞。
+          已在原站送出的申請，仍可使用「手動新增已投遞」記錄與追蹤。
         </p>
       </Notice>
       <div className="pipeline">
@@ -1691,7 +1852,8 @@ function Applications() {
             和需要本人確認的條款會明確交由你處理。
           </p>
           <p>
-            目前請先在原站登入／註冊及送出，再用「手動新增已投遞」記錄；代註冊與正式自動投遞尚未開通。
+            可先點「登入／註冊準備」，讓已連接且具備瀏覽器工具的 AI
+            助理協助；驗證後回來繼續。正式自動投遞尚未開通，請在原站送出，再用「手動新增已投遞」記錄。
           </p>
         </details>
         {rows.length ? (
@@ -1753,6 +1915,18 @@ function Applications() {
                     </td>
                     <td>
                       <div className="actions">
+                        <button
+                          className="secondary small"
+                          onClick={() => run(() => inspectSubmission(a))}
+                        >
+                          檢查投遞
+                        </button>
+                        <button
+                          className="secondary small"
+                          onClick={() => setAccountJob(a.job_id)}
+                        >
+                          登入／註冊準備
+                        </button>
                         {!a.submitted_at && (
                           <button
                             className="secondary small"
@@ -1790,6 +1964,196 @@ function Applications() {
           </Empty>
         )}
       </section>
+      {submission && (
+        <div className="overlay">
+          <section
+            className="dialog wide"
+            role="dialog"
+            aria-modal="true"
+            aria-label="投遞檢查"
+          >
+            <header>
+              <h2>投遞檢查</h2>
+              <button
+                className="icon-button"
+                aria-label="關閉"
+                onClick={() => setSubmission(null)}
+              >
+                ×
+              </button>
+            </header>
+            <h3>
+              {submission.application.company} · {submission.application.title}
+            </h3>
+            {!submission.enabled ? (
+              <Notice>
+                <strong>此平台的正式投遞尚未連接</strong>
+                <p>
+                  目前沒有任何履歷被送出。LinkedIn／104
+                  還需要登入、站內履歷與收件回條的真實驗收，受控測試不代表平台已開通。
+                </p>
+              </Notice>
+            ) : (
+              submission.current && (
+                <>
+                  <Notice>
+                    <strong>受控測試接收端</strong>
+                    <p>
+                      這個驗收環境會實際傳送 PDF
+                      到隔離的測試接收端，不會投給真實雇主，也不代表
+                      LinkedIn／104 已驗收。
+                    </p>
+                  </Notice>
+                  <Badge value={submission.current.status} />
+                  <p>履歷：{submission.current.manifest.resumeTitle}</p>
+                  <p>
+                    <a
+                      href={
+                        base +
+                        "/api/assets/" +
+                        submission.current.manifest.document.id
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      檢視要送出的 PDF
+                    </a>
+                  </p>
+                  <p>帳戶：{submission.current.manifest.accountEmail}</p>
+                  <p className="muted">
+                    文件 SHA-256：
+                    <code className="submission-hash">
+                      {submission.current.manifest.document.sha256}
+                    </code>
+                  </p>
+                  <p>
+                    目標職缺：
+                    <a
+                      href={submission.current.manifest.target.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {submission.current.manifest.target.url}
+                    </a>
+                  </p>
+                  {submission.current.review && (
+                    <>
+                      <h3>實際表單內容</h3>
+                      <pre className="submission-review">
+                        {submission.current.review.text}
+                      </pre>
+                      <dl>
+                        {submission.current.review.controls
+                          .filter((c: Row) => c.type !== "hidden")
+                          .map((c: Row, i: number) => (
+                            <div key={i}>
+                              <dt>{c.label || c.name || "欄位"}</dt>
+                              <dd>
+                                {["radio", "checkbox"].includes(c.type)
+                                  ? c.checked
+                                    ? "已選取"
+                                    : "未選取"
+                                  : c.value || "未填寫"}
+                              </dd>
+                            </div>
+                          ))}
+                      </dl>
+                    </>
+                  )}
+                  {submission.current.status === "prepared" &&
+                    submission.current.review && (
+                      <>
+                        <label className="check">
+                          <input
+                            type="checkbox"
+                            checked={submissionChecked}
+                            onChange={(e) =>
+                              setSubmissionChecked(e.target.checked)
+                            }
+                          />
+                          我已核對職缺、帳戶、履歷版本和表單答案，授權送出這一份申請
+                        </label>
+                        <button
+                          disabled={!submissionChecked}
+                          onClick={() =>
+                            run(async () => {
+                              try {
+                                const current = await api(
+                                  "/submissions/" +
+                                    submission.current.id +
+                                    "/approve",
+                                  "POST",
+                                  {
+                                    fingerprint:
+                                      submission.current.review.fingerprint,
+                                    confirm: true,
+                                  },
+                                );
+                                setSubmission({ ...submission, current });
+                              } catch (e) {
+                                const state = await api(
+                                  "/applications/" +
+                                    submission.application.id +
+                                    "/submissions",
+                                );
+                                setSubmission({
+                                  ...submission,
+                                  current: state.runs[0],
+                                });
+                                throw e;
+                              }
+                            })
+                          }
+                        >
+                          確認送出這一份
+                        </button>
+                      </>
+                    )}
+                  {!submission.current.permit_at &&
+                    ["prepared", "approved"].includes(
+                      submission.current.status,
+                    ) && (
+                      <button
+                        className="secondary"
+                        onClick={() =>
+                          run(async () => {
+                            await api(
+                              "/submissions/" +
+                                submission.current.id +
+                                "/cancel",
+                              "POST",
+                              {},
+                            );
+                            setSubmission(null);
+                          })
+                        }
+                      >
+                        取消這次準備
+                      </button>
+                    )}
+                  {submission.current.receipt && (
+                    <>
+                      <h3>接收證據</h3>
+                      <p>回條編號：{submission.current.receipt.receiptId}</p>
+                      <p>
+                        接收文件 SHA-256：
+                        <code className="submission-hash">
+                          {submission.current.receipt.resumeHash}
+                        </code>
+                      </p>
+                    </>
+                  )}
+                  {submission.current.status === "outcome_unknown" && (
+                    <Notice>
+                      對方可能已收到，已阻止重送。必須查證原站結果，不能把這筆當作未投遞重試。
+                    </Notice>
+                  )}
+                </>
+              )
+            )}
+          </section>
+        </div>
+      )}
       {detail && (
         <div className="overlay">
           <section className="dialog wide" role="dialog" aria-modal="true">
@@ -3688,6 +4052,7 @@ const endpoints: Record<string, string> = {
   collections: "/collections",
   groups: "/groups",
   applications: "/applications",
+  accounts: "/account-setups",
   interviews: "/interviews",
   offers: "/offers",
   tasks: "/tasks",
@@ -3826,6 +4191,7 @@ function App() {
           "jobs",
           "resumes",
           "applications",
+          "accounts",
           "interviews",
           "career",
         ].includes(route) &&
@@ -3862,6 +4228,9 @@ function App() {
     resumes: <Resumes />,
     jobs: <Jobs />,
     applications: <Applications />,
+    accounts: (
+      <AccountSetups items={data.items ?? []} user={user} onChanged={reload} />
+    ),
     interviews: <Interviews />,
     offers: <Offers />,
     collections: <Collections />,

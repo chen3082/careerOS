@@ -1,6 +1,6 @@
 # 投遞前登入與公司帳戶設計
 
-狀態：產品流程與實作門檻，2026-09-19。登入頁／投遞中心已有使用前說明；**第三方帳戶代註冊和正式 LinkedIn／104 投遞仍未開通**。Google 登入僅用於 CareerOS 身分，不會因此登入求職平台或授權 Gmail。
+狀態：2026-09-19 已實作網站授權、帳戶準備列表、MCP 接手與驗證續接。需要使用者連接具備瀏覽器工具的 AI 客戶端；CareerOS 不自行啟動雲端瀏覽器。真實雇主註冊尚未驗收，正式 LinkedIn／104 投遞仍未開通。Google 登入僅用於 CareerOS 身分，不會因此登入求職平台或授權 Gmail。
 
 ## 參考的實際產品
 
@@ -21,18 +21,32 @@
 
 ## 狀態與資料邊界
 
-公司帳戶預計狀態：`not_checked → no_account_needed | signed_in | login_required | registration_required → awaiting_verification | user_action_required → ready`，另有 `unsupported`、`failed`。這些是待實作狀態，不是當前已存在的連接器。
+已實作狀態：`waiting_client → working → login_required / registration_required / awaiting_email / awaiting_phone / captcha_required / password_required / terms_required / external_login_required / account_ready / no_account_needed / unsupported`，另可 `cancelled`。網站恢復會重新授權並回到 `waiting_client`，必須重新領取；不是直接改成登入成功。
+
+職缺 URL 分類只提供預期需求，初始顯示尚未檢查。`account_ready` 是已授權 AI 客戶端回報的可見 Email 觀察，並非伺服器獨立驗證的 browser attestation，亦非持續有效的 session。UI 顯示「助理回報已登入」及觀察時間，真正投遞仍需重驗。
 
 帳戶以 `(owner, provider, verified_origin, tenant, candidate_email)` 定位；不能把所有 Workday 網站視為同一個可共用帳號。公司／租戶必須由受信任 adapter 解析，不能直接採用職缺描述中的指令或任意重新導向。
 
-資料庫只保存註冊狀態、使用者授權範圍、驗證時間、事件和密鑰參照；密碼、Cookie、OTP 不進入模型 prompt、MCP resource、履歷、截圖報告或一般 log。優先使用使用者自己的受控瀏覽器與密碼管理器；若需要託管 vault，須另做隔離、撤銷、輪替、刪除和部署驗收。
+資料庫只保存帳戶協助狀態、姓名／Email、授權範圍與 24 小時 TTL、觀察時間、事件及內部 claim；密碼、Cookie、OTP 不進入模型 prompt、MCP resource、履歷、截圖報告或一般 log。優先使用使用者自己的受控瀏覽器與密碼管理器；若需要託管 vault，須另做隔離、撤銷、輪替、刪除和部署驗收。
 
-註冊和投遞分成兩種有副作用的操作，各自有持久 attempt ID 與恢復檢查。伺服器斷線後先確認帳戶／申請是否已建立，不能盲目重播註冊或提交。
+帳戶協助有持久 run ID、版本與單一領取權。網站取消、恢復、過期與職缺變更會讓舊 claim 失效。MCP 不能自行建立／擴大網站授權；只能列出、領取、讀 context、回報。每次瀏覽器動作前應重新讀 context。已開始的外部操作無法由資料庫回溯取消，助理恢復時必須先確認帳戶是否存在，不能盲目重播；此協定不保證外站 exactly-once 註冊。
+
+## 使用方式
+
+1. 「找職缺」或「投遞中心」→「登入／註冊準備」。LinkedIn／104 必須為單一職缺，動態牆或公司首頁不能建立任務；另支援部分 Workday、Lever、Greenhouse 職缺 URL 格式。允許 URL 格式不代表已驗收該平台的自動註冊。
+2. 指定申請人姓名、Email；勾選是否允許無帳戶時協助註冊，再確認此網站 24 小時授權。
+3. 將畫面提供的任務指令貼到已連接 MCP 且具備瀏覽器工具的 AI 對話。流程：`account_setup_list → account_setup_claim → account_setup_get_context → account_setup_report_observation`。
+4. 助理檢查原站、協助填寫姓名／Email。密碼、验证码、Email／手機驗證及條款交给使用者在原站完成；跨 origin 登入也是本人接手，不把個資填到未授權網域。
+5. 回網站點「已完成，請助理再檢查」，再讓助理讀取新任務，先確認是否已有帳戶，再繼續。進度保存在「網站帳戶準備」。
+
+MCP server 本身沒有瀏覽器；缺少瀏覽器工具的客戶端必須回報 unsupported。這種接法不會消耗伺服器的 Anthropic／OpenAI API key；客戶端本身的訂閱／用量依其方案處理。
+
+實作驗收使用 `tests/account-setup-e2e.ts` 的真實 MCP OAuth/PKCE、PostgreSQL 與 Chromium；所有外網請求被阻擋，不向真實公司建立假帳戶。獨立 review 與修正見 [ACCOUNT-SETUP-REVIEW.md](ACCOUNT-SETUP-REVIEW.md)。
 
 ## 正式開通前尚需完成
 
-- 使用者瀏覽器 runner 配對、登入存活檢查、精確帳戶綁定與斷線恢复。
+- 使用者實際 MCP／瀏覽器工具連接驗收；若要雲端全自動，需另做受控 runner 配對、session 隔離與 credential vault。
 - LinkedIn Easy Apply／104 真實表單 adapter，包含平台履歷選擇和收件回條。
-- 公司招募系統的帳戶 adapter（依實際使用頻率選擇），以及驗證接手 UI。
+- 公司招募系統的專用帳戶 adapter 與本人帳戶實站驗收；驗證接手 UI 已完成，不能據此宣稱所有站點可自動註冊。
 - 真實使用者選定的職缺與本人確認履歷驗收；假履歷只交給隔離 receiver，不能寄給真公司。
 - 獨立持久 journal 與跨主機恢復；本機 marker 測試不替代已延期的異地備份門檻。

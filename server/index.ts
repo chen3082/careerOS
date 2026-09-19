@@ -9,15 +9,25 @@ import path from "node:path";
 import { config } from "./config.js";
 import { pool, one, DomainError } from "./db.js";
 import { authRoutes, requireUser } from "./auth.js";
+import { catalogRoutes } from "./catalog.js";
 import { apiRoutes } from "./routes.js";
 import { groupRoutes } from "./groups.js";
 import { assetRoutes } from "./assets.js";
 import { mcpRoutes } from "./mcp.js";
 import { googleRoutes } from "./google.js";
+import { accountSetupRoutes } from "./account-setup.js";
 import { accountRoutes } from "./account.js";
 import { googleLoginRoutes, type GoogleVerifier } from "./google-login.js";
+import {
+  submissionRoutes,
+  type SubmissionAcceptanceEngine,
+} from "./submissions.js";
+import { SubmissionHandoff } from "./submission-browser.js";
 export async function buildApp(
-  options: { googleVerifier?: GoogleVerifier } = {},
+  options: {
+    googleVerifier?: GoogleVerifier;
+    submissionAcceptanceEngine?: SubmissionAcceptanceEngine;
+  } = {},
 ) {
   if (options.googleVerifier && config.NODE_ENV !== "test")
     throw new Error("Test verifier is forbidden outside tests");
@@ -76,6 +86,10 @@ export async function buildApp(
     return payload;
   });
   app.setErrorHandler((error, req, reply) => {
+    if (error instanceof SubmissionHandoff)
+      return reply
+        .code(409)
+        .send({ error: error.reason, details: { fields: error.fields } });
     if (error instanceof DomainError)
       return reply
         .code(error.status)
@@ -105,10 +119,13 @@ export async function buildApp(
   await authRoutes(app);
   await googleLoginRoutes(app, options.googleVerifier);
   await apiRoutes(app);
+  await catalogRoutes(app);
+  await submissionRoutes(app, options.submissionAcceptanceEngine);
   await groupRoutes(app);
   await assetRoutes(app);
   await googleRoutes(app);
   await accountRoutes(app);
+  await accountSetupRoutes(app);
   await mcpRoutes(app);
   app.get(config.basePath + "/api/signals", async (req) => {
     const u = await requireUser(req);
