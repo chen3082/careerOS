@@ -1496,3 +1496,20 @@ td .text-button span {
   border-radius: 8px;
   background: var(--bg);
 }
+
+.onboarding-note {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.onboarding-note summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.onboarding-note p {
+  margin: 10px 0 0;
+}

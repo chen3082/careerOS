@@ -364,6 +364,22 @@ function Auth({ onLogin }: { onLogin: (u: Row) => void }) {
               ? "從真實的你開始，慢慢建立完整的職涯紀錄。"
               : "你的經驗、機會與下一步，都在這裡。"}
           </p>
+          <details className="onboarding-note" open={register}>
+            <summary>開始前，需要準備什麼？</summary>
+            <p>
+              先建立 CareerOS 帳戶，保存你的經驗與履歷。Google
+              登入只登入這個工作台。
+            </p>
+            <p>
+              投遞 LinkedIn、104
+              或公司招募網站時，可能還需要登入對方網站。有些公司要求另外建立候選人帳戶，並完成
+              Email 或手機驗證。
+            </p>
+            <p>
+              目前可使用經驗庫、多版履歷與手動投遞追蹤。LinkedIn／104
+              自動送出、代註冊公司帳戶仍未開通。
+            </p>
+          </details>
           <form
             ref={authForm}
             onSubmit={async (e) => {
@@ -1662,6 +1678,22 @@ function Applications() {
             <button onClick={record}>＋ 手動新增已投遞</button>
           </div>
         </div>
+        <details className="onboarding-note">
+          <summary>投遞前：先確認帳戶、履歷與必填答案</summary>
+          <p>
+            CareerOS 帳戶、LinkedIn／104
+            帳戶，以及各公司的候選人帳戶可能是分開的。登入 CareerOS
+            不代表已登入招募網站。
+          </p>
+          <p>
+            遇到需要建立帳戶的公司，流程必須先確認使用的
+            Email，完成註冊與驗證，再填履歷。驗證碼、CAPTCHA
+            和需要本人確認的條款會明確交由你處理。
+          </p>
+          <p>
+            目前請先在原站登入／註冊及送出，再用「手動新增已投遞」記錄；代註冊與正式自動投遞尚未開通。
+          </p>
+        </details>
         {rows.length ? (
           <div className="table-scroll">
             <table>
