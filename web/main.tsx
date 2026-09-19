@@ -3194,6 +3194,7 @@ function Settings() {
           <label className="field">
             <span>AI 助理</span>
             <select
+              aria-label="AI 助理"
               value={mcpClient}
               onChange={(e) => setMcpClient(e.target.value)}
             >
