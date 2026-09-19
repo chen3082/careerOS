@@ -2,6 +2,8 @@
 
 日期：2026-09-19 UTC。發布範圍為邀請制首版；完整目標功能與剩餘工作請分別看 SYSTEM_DESIGN 和 TODO。
 
+後續增量驗收：[Google 登入](GOOGLE-LOGIN-REVIEW.md)與 [OpenAI／多 AI 客戶端](AI-PROVIDERS-REVIEW.md)。後者已將 PostgreSQL 整合測試擴充至 40 項，並加入兩家供應商的瀏覽器與真實 worker 流程；以下表格保留首版交付的驗證範圍。
+
 網站：<https://gptig.allenchencode.com/careeros/>。MCP：<https://gptig.allenchencode.com/careeros/mcp>。程式庫：<https://github.com/chen3082/careerOS>。
 
 | 驗證 | 結果 |
