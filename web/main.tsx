@@ -3306,7 +3306,16 @@ function App() {
     const interval = setInterval(() => {
       if (
         document.visibilityState === "visible" &&
-        ["tasks", "experience", "jobs"].includes(route) &&
+        [
+          "dashboard",
+          "tasks",
+          "experience",
+          "jobs",
+          "resumes",
+          "applications",
+          "interviews",
+          "career",
+        ].includes(route) &&
         !modal
       )
         reload();

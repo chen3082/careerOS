@@ -71,6 +71,8 @@ bash scripts/test-remote.sh
 
 整合測試覆蓋 session / CSRF、多租戶存取、事實撤回、不可變版本、idempotency、事件去重、準備與面試分離、offer 終態、小組撤銷、真實 MCP SDK 連接、PKCE／refresh reuse／scope，以及 PDF／DOCX 固定下載。瀏覽器流程見 `tests/browser.ts`。
 
+三位虛構人物、六版履歷的真實 HTTP MCP／瀏覽器完整驗收，包含資源限制、隔離資料庫與測後清理，見 [MCP E2E 操作文件](docs/MCP_E2E.md)。
+
 ## 文件
 
 - [System design](docs/SYSTEM_DESIGN.md)、[contracts](docs/SYSTEM_CONTRACTS.md)、[原始驗收計畫](docs/IMPLEMENTATION_PLAN.md)：完整目標架構；不代表每項已交付。

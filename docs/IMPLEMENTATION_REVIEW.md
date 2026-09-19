@@ -89,6 +89,14 @@ This evidence does not establish live Google consent/synchronization, real paid 
 
 The defensible scope is an invite-only first release with explicit integration limitations. Do not describe it as fully production-ready for public onboarding while independent disaster recovery, live provider acceptance, password recovery, resource/load testing, and independent uptime/error alerts remain outstanding. Keep the UI and README consistent with the actual enabled capabilities.
 
+## Synthetic MCP E2E follow-up — 2026-09-19
+
+The implementation agent exercised three fictional accounts, six resume variants, 115 MCP tool calls and 27 grouped checks using the official SDK over real HTTP plus Chromium website confirmations. The disposable runner used an internal network, an independent PostgreSQL container, randomly generated test credentials, memory/CPU caps and tmpfs private storage. No production environment file or application volume was mounted. The runner reported success, and the outer wrapper verified unchanged existing service identities/start times/restart counts/health and removal of the test containers/network. These remote results were reported by the implementation agent, not rerun by the reviewer.
+
+The independent reviewer inspected the test harness and isolation wrapper. Two review observations were corrected: cleanup cannot claim removal when inspection fails or resources remain; stored-HTML testing must first assert that the payload is visibly rendered. The wrapper also merges cleanup and service-state results with the scenario result so a runner-only success cannot stand in for overall success.
+
+The E2E test found that an open resume page did not refresh after an external MCP client generated another version. The implementation extended the existing visible-page, no-modal ten-second polling to resumes, dashboard, applications, interviews and career. The reviewer inspected the small runtime diff: owner/route guards remain intact, open forms remain protected, and each visible tab still polls only its current route (about six requests/minute). No new blocker was identified. The repaired same-page scenario passed in the reported remote run. This follow-up does not establish real Claude inference, autonomous submission or penetration-test certification.
+
 ## Follow-up review: CJK PDF parsing
 
 Reviewed commit `60fae6b` and the subsequent stdout-collection hardening before its commit. Scope was `Dockerfile`, `server/worker.ts`, `server/parse-document.ts`, and the associated worker smoke/CI changes. No new blocker was identified for the limited release described above.
