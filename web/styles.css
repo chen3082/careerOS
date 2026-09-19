@@ -1206,6 +1206,18 @@ td .text-button span {
 .sidebar-close {
   display: none;
 }
+.submission-hash {
+  overflow-wrap: anywhere;
+}
+.submission-review {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  background: #f3f7f5;
+  border-radius: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
 @media (min-width: 1550px) {
   .job-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1495,4 +1507,21 @@ td .text-button span {
   padding: 14px;
   border-radius: 8px;
   background: var(--bg);
+}
+
+.onboarding-note {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.onboarding-note summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.onboarding-note p {
+  margin: 10px 0 0;
 }

@@ -16,7 +16,8 @@
 
 - [ ] 104、Cake、Yourator 原生搜尋；目前可以手動匯入這些平台的職缺，企業公開 API 可搜尋台灣與美國職缺。
 - [ ] 各站 autofill／submit adapter、使用者投遞規則 UI、表單接手、回條與 submission_unknown 對帳。資料表不是已完成的功能；自動送出目前不可啟用。
-- [ ] Google 登入：設定現有 Web OAuth client 的 `GOOGLE_LOGIN_CLIENT_ID`、確認 JavaScript origin、完成真實 Google 帳戶驗收。登入程式／合成身分測試與操作說明見 `GOOGLE-LOGIN.md`；未設定時不顯示登入按鈕。
+- [ ] Google 登入：2026-09-19 已套用使用者提供的 `GOOGLE_LOGIN_CLIENT_ID`，正式網站按鈕已確認顯示；仍需本人完成 Google 登入以驗收 Console origin／audience 設定。登入程式／合成身分測試與操作說明見 `GOOGLE-LOGIN.md`。
+- [ ] 投遞前帳戶檢查、公司帳戶協助註冊、Email／手機／CAPTCHA 接手與恢復。產品流程見 `APPLICATION_ACCOUNTS.md`；CareerOS Google 登入不會自動登入外站。
 - [ ] Gmail／Calendar OAuth client 設定、必要驗證、真實帳戶 acceptance；與 Google 登入分開，僅登入不會授權讀取信箱或日曆。
 - [ ] 使用者 Anthropic／OpenAI key 的實際生成／語音品質驗收，以及 Claude／ChatGPT／Codex MCP 連接的使用者端驗收；HTTP MCP 已使用官方 SDK 實測。
 - [ ] 履歷 claim 細粒度語義核對與差異 UI；目前 fact ID／版本／有效性檢查加上本人逐段確認，不能宣稱機器已證明每句話都正確。

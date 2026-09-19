@@ -23,6 +23,7 @@ export async function accountRoutes(app: FastifyInstance) {
       "applications",
       "application_events",
       "dossiers",
+      "submission_runs",
       "interviews",
       "preparations",
       "interview_notes",

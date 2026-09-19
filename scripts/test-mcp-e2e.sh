@@ -10,6 +10,7 @@ case "${CAREEROS_E2E_SCENARIO:-mcp}" in
   manual) test_script=tests/manual-applications.ts ;;
   google) test_script=tests/google-login-browser.ts ;;
   providers) test_script=tests/ai-provider-browser.ts ;;
+  submissions) test_script=tests/submission-e2e.ts ;;
   *) echo "Unknown E2E scenario" >&2; exit 1 ;;
 esac
 image_ref="${CAREEROS_E2E_IMAGE:-careeros:local}"
