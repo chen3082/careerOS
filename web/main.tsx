@@ -1644,7 +1644,15 @@ function Applications() {
                         }
                       >
                         <strong>{a.company}</strong>
-                        <span>{a.title}</span>
+                        <span>
+                          {a.title} ·{" "}
+                          {(
+                            { TW: "台灣", US: "美國", INTL: "國際" } as Record<
+                              string,
+                              string
+                            >
+                          )[a.market] ?? a.market}
+                        </span>
                       </button>
                     </td>
                     <td>

@@ -256,7 +256,7 @@ export async function apiRoutes(app: FastifyInstance) {
       api.get("/applications", async (req) => ({
         items: (
           await pool.query(
-            "SELECT a.*,j.title,j.company,j.url,r.title AS resume_title FROM applications a JOIN jobs j ON j.id=a.job_id AND j.owner_id=a.owner_id LEFT JOIN resumes r ON r.id=a.resume_id AND r.owner_id=a.owner_id WHERE a.owner_id=$1 ORDER BY a.created_at DESC LIMIT 200",
+            "SELECT a.*,j.title,j.company,j.market,j.url,r.title AS resume_title FROM applications a JOIN jobs j ON j.id=a.job_id AND j.owner_id=a.owner_id LEFT JOIN resumes r ON r.id=a.resume_id AND r.owner_id=a.owner_id WHERE a.owner_id=$1 ORDER BY a.created_at DESC LIMIT 200",
             [req.user!.id],
           )
         ).rows,

@@ -123,9 +123,7 @@ try {
   ]);
   await page.goto(config.PUBLIC_URL + "/#applications");
   await page.getByRole("button", { name: "＋ 手動新增已投遞" }).click();
-  const localInput = await page
-    .getByLabel("投遞時間", { exact: true })
-    .inputValue();
+  const localInput = await page.getByLabel(/^投遞時間/).inputValue();
   const localEpoch = await page.evaluate(
     (s) => new Date(s).getTime(),
     localInput,
@@ -134,9 +132,9 @@ try {
   check(
     "Manual entry defaults to the browser's local time (Asia/Taipei), not UTC displayed as local",
   );
-  await page.getByLabel("公司", { exact: true }).fill("虛構公司：外部投遞");
+  await page.getByLabel(/^公司/).fill("虛構公司：外部投遞");
   await page.getByLabel("職位名稱").fill("Frontend Engineer");
-  await page.getByLabel("投遞時間", { exact: true }).fill("2025-06-15T10:30");
+  await page.getByLabel(/^投遞時間/).fill("2025-06-15T10:30");
   await page.getByLabel("投遞管道").fill("104");
   await page.getByLabel("外部履歷名稱").fill("前端履歷 v3（外部文件）");
   await page.getByLabel("投遞備註").fill("完全虛構的驗收紀錄，沒有真實投遞。");
@@ -176,13 +174,10 @@ try {
   const pdf = await pdfPage.pdf({ format: "A4" });
   await pdfPage.close();
   await page.getByRole("button", { name: "＋ 手動新增已投遞" }).click();
-  await page.getByLabel("公司", { exact: true }).fill("Fictional PDF Company");
+  await page.getByLabel(/^公司/).fill("Fictional PDF Company");
   await page.getByLabel("職位名稱").fill("Backend Engineer");
-  await page
-    .getByRole("dialog")
-    .getByLabel("市場", { exact: true })
-    .selectOption("US");
-  await page.getByLabel("投遞時間", { exact: true }).fill("2025-07-20T09:15");
+  await page.getByRole("dialog").getByLabel(/^市場/).selectOption("US");
+  await page.getByLabel(/^投遞時間/).fill("2025-07-20T09:15");
   await page.getByLabel("投遞管道").fill("Email");
   await page.getByLabel("上傳當時的履歷").setInputFiles({
     name: "external-cv.pdf",
@@ -249,11 +244,9 @@ try {
     blocks: [{ heading: "Project", text: fact.content, factIds: [fact.id] }],
   });
   await page.getByRole("button", { name: "＋ 手動新增已投遞" }).click();
-  await page
-    .getByLabel("公司", { exact: true })
-    .fill("Fictional Internal Resume Co");
+  await page.getByLabel(/^公司/).fill("Fictional Internal Resume Co");
   await page.getByLabel("職位名稱").fill("Platform Engineer");
-  await page.getByLabel("投遞時間", { exact: true }).fill("2025-08-10T18:00");
+  await page.getByLabel(/^投遞時間/).fill("2025-08-10T18:00");
   await page.getByLabel("使用的站內履歷").selectOption(resume.id);
   assert.equal(await page.getByLabel("上傳當時的履歷").count(), 0);
   assert.equal(await page.getByLabel("外部履歷名稱").count(), 0);
@@ -471,6 +464,11 @@ try {
   await page
     .getByText("Fictional Concurrent Company", { exact: true })
     .waitFor();
+  const marketRows = page
+    .getByRole("button")
+    .filter({ hasText: crossMarket.company });
+  assert.equal(await marketRows.filter({ hasText: "台灣" }).count(), 1);
+  assert.equal(await marketRows.filter({ hasText: "美國" }).count(), 1);
   await page.screenshot({
     path: path.join(output, "manual-applications-desktop.png"),
     fullPage: true,
