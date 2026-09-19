@@ -31,3 +31,9 @@ sudo env CAREEROS_E2E_SCENARIO=manual CAREEROS_E2E_IMAGE=careeros:manual-candida
 `tests/integration/product.test.ts` 覆蓋空經驗直接補登、不可變快照、站內履歷、附件私密性、附件回滾／檔案清理、同 key 重試、改檔衝突、跨市場身分與負向輸入。
 
 `tests/manual-applications.ts` 使用真實 HTTP、Chromium、虛構帳戶／公司與產生的 PDF，涵蓋三種履歷來源及未指定履歷、台北時間、下載位元一致性、帳號隔離／CSRF、重複／併發、舊面試狀態、桌面／手機，以及延遲履歷回應跨帳號的回歸。外層 wrapper 驗證其他服務的 ID／啟動時間／重啟次數／健康狀態未變，且測試容器／網路已清除，才回報總體成功。
+
+## 驗收紀錄
+
+2026-09-19 的隔離 GCP 真實 HTTP／Chromium 執行通過 12 組檢查；runner exit=0，外層 `passed`／`servicesUnchanged`／`cleanupVerified` 均為 true。桌面列表與手機表單截圖已檢視。所有公司／人物／履歷皆為合成資料，沒有建立正式假投遞，也沒有向外部送件或呼叫付費模型。
+
+GitHub CI 對新增核心程式跑完 build、4 項 unit、16 項 PostgreSQL integration、瀏覽器、離線 PDF worker 與 dependency audit，全部成功。獨立 reviewer 的範圍與 4 項修正見 IMPLEMENTATION_REVIEW.md。測試不代表防毒掃描、外部投遞或真實 Claude 整合驗收。

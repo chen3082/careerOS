@@ -8,12 +8,13 @@
 |---|---|
 | TypeScript／Vite production build | 通過 |
 | 加密／idempotency／備份 unit tests | 4 項通過 |
-| 專用 PostgreSQL 整合測試 | 11 項通過，未使用正式資料 |
+| 專用 PostgreSQL 整合測試 | 16 項通過，含手動補登／附件清理鎖，未使用正式資料 |
 | 官方 MCP SDK | 真實 HTTP PKCE、scope、一次性 code、refresh reuse、讀写工具界線通過 |
 | 文件 | PDF、DOCX、Markdown 含聯絡 email；兩次下載 PDF／DOCX 位元相同；跨帳號下載拒絕 |
 | Chromium UI | 註冊→經驗→履歷確認→PDF→匯入職缺→申請草稿；1440×1050 桌面、390×844 手機；無 page error |
 | 背景 worker | 真實佇列的中文字型 PDF 解析與台灣職缺搜尋均 succeeded；原解析器記憶體問題已修正 |
 | GitHub CI | build、unit、PostgreSQL 整合、瀏覽器與 dependency audit 通過；另納入 PDF worker 回歸 |
+| 手動投遞紀錄 | 新帳號直接補登、站內履歷／私人外部附件／只填名稱／未指定履歷、日期與管道；隔離 HTTP／Chromium 12 組檢查通過 |
 | 多人物 MCP E2E | 三位虛構人物、六版履歷、115 次 MCP tool 呼叫、27 組檢查通過；隔離與清理驗證通過，詳見 MCP_E2E.md |
 | 獨立 agent | 7 項具體 finding 已修正；切換有資料頁面及 A→B 帳戶的隔離回歸獨立通過 |
 | 台灣公開職缺 | Lever Gogolook 實際取得 11 份台灣職缺（當次來源共 12 份） |
@@ -28,4 +29,4 @@
 
 未實測：真實 Anthropic／OpenAI BYOK、Google 使用者授權、Claude 網站自訂 connector UI、真正對外送出履歷。前者需要使用者／營運者連接；自動投遞與跨主機恢復仍受 TODO 中的工程門檻限制，不能宣稱完整 production-ready。
 
-第一次使用需要建立管理員；私人開通連結只保存在擁有者電腦上的交付文件，不放進 repository。請先建立經驗、確認履歷，再邀請小組成員。
+第一次使用需要建立管理員；私人開通連結只保存在擁有者電腦上的交付文件，不放進 repository。建立後可先補登既有申請，或開始整理經驗與履歷，再邀請小組成員。
