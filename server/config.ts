@@ -18,6 +18,7 @@ const env = z
     BOOTSTRAP_TOKEN: z.string().min(24).optional(),
     REGISTRATION_OPEN: z.string().default("false"),
     ANTHROPIC_MODEL: z.string().default("claude-sonnet-4-6"),
+    OPENAI_MODEL: z.string().min(1).max(160).default("gpt-4.1-mini-2025-04-14"),
     RECOVERY_EPOCH: z.coerce.number().int().positive().default(1),
     SUBMISSIONS_ENABLED: z.string().default("false"),
     GOOGLE_CLIENT_ID: z.string().optional(),

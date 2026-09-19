@@ -12,7 +12,7 @@ nginx 加入 `/careeros`、`/.well-known/oauth-authorization-server/careeros/oau
 
 ## MCP 與 AI
 
-Claude 的自訂 connector 填入 `${PUBLIC_URL}/mcp`。使用者登入 CareerOS 後，可選擇核准 scopes。MCP 是 client 驅動，網站不能自行喚醒使用者的 Claude。啟用 BYOK 才會使用該使用者加密保存的 API key；沒有平台 key 後備。
+Claude／ChatGPT／Codex 的 MCP 連接填入 `${PUBLIC_URL}/mcp`。使用者登入 CareerOS 後，可選擇核准 scopes。MCP 是 client 驅動，網站不能自行喚醒使用者的 AI 助理。啟用 BYOK 才會使用該使用者加密保存的 API key；沒有平台 key 後備。
 
 每日用量按照使用者設定時區計算。文字生成採保守 token 預留；語音轉錄為獨立 OpenAI BYOK，先轉成有上限的 WAV 並預留 10,000 token 單位。此欄位是執行上限，不是精確金額報表；供應商計費以供應商帳單為準。逾時等結果未知保留預留，不自動重試。語音目前無說話者辨識與時間戳 UI。
 
@@ -36,3 +36,5 @@ Google 整合需填 `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`，redirect URI �
 先備份；建置新的 image tag；在獨立 `*_test` database 跑 migrations 和整合測試；正式 migration 完成後替換 web／worker，再檢查 `/careeros/health` 與登入。資料庫 schema 不自動降版；若需回退，使用相容舊版程式或在隔離環境還原，不對正式資料庫直接 drop table。
 
 查看 `docker-compose ps`、`docker-compose logs --tail=100 web worker`，不要輸出 `.env`。JSON request logs 不記錄 body、Cookie、Authorization 或 URL query；database exceptions 只記錄 code。保留容器日誌上限 3 × 10 MB。建議正式公開上線前增加獨立 uptime／錯誤告警、供應商 key 輪換、password recovery、負載與滲透測試。
+
+多供應商模型設定、連接指引，以及升級前必須停止舊 worker 的順序見 [AI-PROVIDERS.md](AI-PROVIDERS.md)。

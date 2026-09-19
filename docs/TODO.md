@@ -18,7 +18,7 @@
 - [ ] 各站 autofill／submit adapter、使用者投遞規則 UI、表單接手、回條與 submission_unknown 對帳。資料表不是已完成的功能；自動送出目前不可啟用。
 - [ ] Google 登入：設定現有 Web OAuth client 的 `GOOGLE_LOGIN_CLIENT_ID`、確認 JavaScript origin、完成真實 Google 帳戶驗收。登入程式／合成身分測試與操作說明見 `GOOGLE-LOGIN.md`；未設定時不顯示登入按鈕。
 - [ ] Gmail／Calendar OAuth client 設定、必要驗證、真實帳戶 acceptance；與 Google 登入分開，僅登入不會授權讀取信箱或日曆。
-- [ ] 使用者 Anthropic／OpenAI key 的實際生成／語音品質驗收，以及 Claude 自訂 connector 的使用者端驗收；HTTP MCP 已使用官方 SDK 實測。
+- [ ] 使用者 Anthropic／OpenAI key 的實際生成／語音品質驗收，以及 Claude／ChatGPT／Codex MCP 連接的使用者端驗收；HTTP MCP 已使用官方 SDK 實測。
 - [ ] 履歷 claim 細粒度語義核對與差異 UI；目前 fact ID／版本／有效性檢查加上本人逐段確認，不能宣稱機器已證明每句話都正確。
 - [ ] Markdown round-trip 差異合併、可編輯結構化日期與聯絡資料、更多履歷版型、求職信。現有 Markdown 上傳會保留為原始素材。
 - [ ] 更大規模搜尋排序與跨站同職缺去重、O*NET／ESCO 正式職涯資料及發證機關 connector。当前分析只引用使用者已保存的職缺樣本。

@@ -1471,6 +1471,28 @@ td .text-button span {
   opacity: 0.65;
 }
 
-.privacy-page {max-width: 780px; margin: 40px auto; padding: 36px; line-height: 1.8;}
-.privacy-page h2 {margin-top: 28px;}
-@media(max-width: 600px) {.privacy-page {margin: 16px; padding: 20px;}}
+.privacy-page {
+  max-width: 780px;
+  margin: 40px auto;
+  padding: 36px;
+  line-height: 1.8;
+}
+.privacy-page h2 {
+  margin-top: 28px;
+}
+@media (max-width: 600px) {
+  .privacy-page {
+    margin: 16px;
+    padding: 20px;
+  }
+}
+
+.mcp-command {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--bg);
+}

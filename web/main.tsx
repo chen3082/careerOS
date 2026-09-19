@@ -53,7 +53,7 @@ const statuses: Record<string, string> = {
   cancelled: "已取消",
   queued: "等待執行",
   running: "執行中",
-  waiting_client: "待你的 Claude 處理",
+  waiting_client: "待你的 AI 助理處理",
   succeeded: "完成",
   failed: "需要處理",
   received: "待決定",
@@ -490,7 +490,7 @@ function Auth({ onLogin }: { onLogin: (u: Row) => void }) {
           <small className="auth-privacy">
             履歷與面經由你決定是否分享。
             <br />
-            AI 功能使用你自己的 Claude 或 API key。
+            AI 功能可連接 Claude、ChatGPT、Codex，或使用自己的 API key。
           </small>
         </div>
       </section>
@@ -869,7 +869,7 @@ function Experience() {
                           }),
                         user.settings.mode === "byok"
                           ? "已排入整理任務"
-                          : "任務已建立，請到你的 Claude 處理",
+                          : "任務已建立，請到已連接的 AI 助理處理",
                       )
                     }
                   >
@@ -2130,7 +2130,7 @@ function Interviews() {
           ) : (
             <Empty
               title="練習，也是一種進展"
-              body="為目標公司或職位建立準備筆記，可以在 Claude 對話中透過 MCP 保存。"
+              body="為目標公司或職位建立準備筆記，可以在已連接的 AI 助理中透過 MCP 保存。"
             />
           )}
         </section>
@@ -2909,8 +2909,9 @@ function Tasks() {
   return (
     <>
       <Notice>
-        純 MCP 模式需要你在已連接 CareerOS 的 Claude 說：「請處理我的 CareerOS
-        待辦生成任務」。網站不能自行喚醒你的 Claude。BYOK 模式則由背景工作執行。
+        MCP 模式請在已連接 CareerOS 的 Claude、ChatGPT 或 Codex 說：「請處理我的
+        CareerOS 待辦生成任務」。對話由你啟動；選擇 API key
+        模式後，任務才會由網站背景執行。
       </Notice>
       {d.proposals?.length > 0 && (
         <section className="card">
@@ -3026,6 +3027,12 @@ function Tasks() {
                 {t.error && <p className="error-text">{t.error}</p>}
               </div>
               <Badge value={t.status} />
+              {t.ai_provider && (
+                <small className="muted">
+                  {t.ai_provider === "openai" ? "OpenAI" : "Anthropic"} ·{" "}
+                  {t.ai_model}
+                </small>
+              )}
               {["queued", "waiting_client", "failed"].includes(t.status) && (
                 <button
                   className="link"
@@ -3173,15 +3180,70 @@ function GoogleAccount() {
 function Settings() {
   const { data: d, user, run, form, notify } = useApp();
   const settings = d.settings ?? user.settings;
+  const [mcpClient, setMcpClient] = useState("claude");
   return (
     <>
       <div className="columns">
         <section className="card">
           <p className="eyebrow">BRING YOUR OWN AI</p>
-          <h2>連接自己的 Claude</h2>
+          <h2>連接自己的 AI 助理</h2>
           <p className="muted">
-            在 Claude 的 Connectors
-            新增自訂連接，填入下方網址。透過登入與授權連接你的 CareerOS 帳戶。
+            Claude、ChatGPT、Codex 都可透過 MCP
+            連接同一個私人工作台。選擇你的工具，查看連接方式。
+          </p>
+          <label className="field">
+            <span>AI 助理</span>
+            <select
+              value={mcpClient}
+              onChange={(e) => setMcpClient(e.target.value)}
+            >
+              <option value="claude">Claude</option>
+              <option value="chatgpt">ChatGPT · OpenAI</option>
+              <option value="codex">Codex · OpenAI</option>
+            </select>
+          </label>
+          {mcpClient === "claude" && (
+            <p className="muted">
+              在 Claude 的 Connectors 新增自訂連接，填入下方網址，登入 CareerOS
+              並核准需要的權限。
+            </p>
+          )}
+          {mcpClient === "chatgpt" && (
+            <p className="muted">
+              在 ChatGPT 開啟 Developer mode，再到 Apps／Plugins 新增 MCP
+              連接。填入下方網址，使用 OAuth 登入
+              CareerOS；本服務支援動態用戶端註冊（DCR）。功能入口依你的帳戶與工作區權限而定。
+              <br />
+              <a
+                href="https://developers.openai.com/api/docs/guides/developer-mode"
+                target="_blank"
+                rel="noreferrer"
+              >
+                OpenAI 官方連接說明 ↗
+              </a>
+            </p>
+          )}
+          {mcpClient === "codex" && (
+            <>
+              <p className="muted">
+                在 Codex 的 MCP 設定新增 Remote HTTP server，或在已安裝 Codex
+                CLI 的終端機執行下列指令，接著登入並授權。
+              </p>
+              <pre className="mcp-command">{`codex mcp add careeros --url ${d.mcpUrl ?? ""}\ncodex mcp login careeros`}</pre>
+              <a
+                href="https://learn.chatgpt.com/docs/extend/mcp?surface=cli"
+                target="_blank"
+                rel="noreferrer"
+              >
+                OpenAI 官方 MCP 說明 ↗
+              </a>
+            </>
+          )}
+          <p className="muted">
+            <small>
+              連接後，在對話中要求「請處理我的 CareerOS
+              待辦生成任務」。內容會先成為草稿，由你確認。
+            </small>
           </p>
           <label className="field">
             <span>Remote MCP 網址</span>
@@ -3219,11 +3281,29 @@ function Settings() {
                 defaultValue={settings.mode}
                 key={settings.mode}
               >
-                <option value="mcp">我的 Claude · MCP</option>
-                <option value="byok">背景執行 · 我的 Anthropic API key</option>
+                <option value="mcp">我的 AI 助理 · MCP</option>
+                <option value="byok">背景執行 · 我的 API key</option>
                 <option value="manual">手動整理</option>
               </select>
             </label>
+            <label className="field">
+              <span>背景文字生成供應商</span>
+              <select
+                name="aiProvider"
+                defaultValue={settings.aiProvider ?? "anthropic"}
+                key={settings.aiProvider ?? "anthropic"}
+              >
+                <option value="anthropic">Anthropic · Claude</option>
+                <option value="openai">OpenAI · GPT</option>
+              </select>
+            </label>
+            <small>
+              僅在「背景執行」模式使用。OpenAI：
+              {d.capabilities?.textGeneration?.openai ?? "由管理員設定"}
+              ；Anthropic：
+              {d.capabilities?.textGeneration?.anthropic ?? "由管理員設定"}
+              。供應商選擇只影響新任務。
+            </small>
             <label className="field">
               <span>時區</span>
               <input name="timezone" defaultValue={settings.timezone} />
@@ -3270,7 +3350,8 @@ function Settings() {
           <section className="card">
             <h2>API keys</h2>
             <p className="muted">
-              Claude 訂閱與 API 計費分開。Key 加密保存，僅在你的任務執行時使用。
+              ChatGPT／Claude 訂閱與 API 用量分開。Key
+              加密保存，僅在你的任務執行時使用。
             </p>
             {["anthropic", "openai"].map((provider) => (
               <div className="credential" key={provider}>
@@ -3278,7 +3359,7 @@ function Settings() {
                   <strong>
                     {provider === "anthropic"
                       ? "Anthropic · 文字生成"
-                      : "OpenAI · 音檔轉錄"}
+                      : "OpenAI · 文字生成與音檔轉錄"}
                   </strong>
                   <p>
                     {d.credentials?.find((c: Row) => c.provider === provider)

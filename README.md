@@ -12,21 +12,21 @@
 | 申請 | 草稿、指定履歷、準備快照、手動確認；可直接補登站外投遞，選站內履歷／上傳外部 PDF、DOCX／只填名稱；日期、管道與事件追蹤 |
 | 面試與 offer | 正式邀請／輪次／改期；準備與正式面試分開；文字與附件面經；offer 條件版本、期限與本人決定 |
 | 小組 | 單次邀請、共用職缺池、自己的未投／準備狀態、選擇性進度分享、文字面經快照、討論、撤銷與成員管理 |
-| 自有 Claude | Remote MCP + OAuth 2.1 PKCE；讀取資料、生成任務、保存草稿、提議狀態；網站確認權限不交給 MCP |
-| BYOK | 使用者 Anthropic key 進行文字生成；OpenAI key 轉錄最多三分鐘音訊；每日 token 預留、費用未知不自動重跑 |
+| 自有 AI 助理 | Remote MCP + OAuth 2.1 PKCE；讀取資料、生成任務、保存草稿、提議狀態；網站確認權限不交給 MCP |
+| BYOK | 使用者 OpenAI 或 Anthropic key 進行文字生成；OpenAI key 也可轉錄最多三分鐘音訊；每日 token 預留、費用未知不自動重跑 |
 | 職涯導航 | 根據固定的最多 20 份已保存職缺樣本，提供方向、證據缺口與學習任務；不把缺資料當成缺能力，不宣稱具備未確認技能 |
 | 信箱／日曆 | Google 唯讀整合程式已實作；需營運者提供 OAuth 設定與通過所需驗證，目前未連接真實帳戶。定期同步為待確認訊號，不自行宣稱面試／offer |
 | 自動送出 | **未實作／未啟用。** 需要站點 adapter、獨立 submission journal、恢復對帳及使用者規則驗收，不能只改一個環境變數開啟 |
 | 備份 | 加密本機備份腳本、刪除 ledger 與還原程序；跨主機私有 bucket 依使用者要求延後 |
 
-沒有內建假職缺、假投遞成功或共享平台模型金鑰。Claude 訂閱不等於網站可免費呼叫 Anthropic API；MCP 任務需要使用者在自己的 Claude 對話啟動。MCP 也不會自行監看使用者硬碟檔案或讀取未授權的對話。
+沒有內建假職缺、假投遞成功或共享平台模型金鑰。ChatGPT／Claude 訂閱與 API 用量分開；MCP 任務可在已連接的 Claude、ChatGPT 或 Codex 對話啟動，連接指引見 [AI-PROVIDERS.md](docs/AI-PROVIDERS.md)。MCP 也不會自行監看使用者硬碟檔案或讀取未授權的對話。
 
 ## 架構
 
 ```mermaid
 flowchart LR
   Browser[React 網站] --> API[Fastify API]
-  Claude[使用者 Claude] --> OAuth[OAuth PKCE / MCP]
+  AI[Claude / ChatGPT / Codex] --> OAuth[OAuth PKCE / MCP]
   OAuth --> Domain[共用領域規則]
   API --> Domain
   Domain --> DB[(PostgreSQL)]

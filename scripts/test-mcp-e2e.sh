@@ -9,6 +9,7 @@ case "${CAREEROS_E2E_SCENARIO:-mcp}" in
   mcp) test_script=tests/mcp-e2e.ts ;;
   manual) test_script=tests/manual-applications.ts ;;
   google) test_script=tests/google-login-browser.ts ;;
+  providers) test_script=tests/ai-provider-browser.ts ;;
   *) echo "Unknown E2E scenario" >&2; exit 1 ;;
 esac
 image_ref="${CAREEROS_E2E_IMAGE:-careeros:local}"
@@ -125,7 +126,7 @@ timeout --signal=TERM --kill-after=10s 12m docker run --name "$runner" --network
   --mount "type=bind,src=$PWD/dist,dst=/app/dist,readonly" \
   --mount "type=bind,src=$report,dst=/tmp/careeros-mcp-e2e-report" \
   --log-opt max-size=4m --log-opt max-file=1 \
-  "$image_ref" sh -c 'npm run migrate && if [ "$1" = tests/google-login-browser.ts ]; then npm test && npm run test:integration; fi && node --import tsx "$1"' sh "$test_script" \
+  "$image_ref" sh -c 'npm run migrate && if [ "$1" = tests/google-login-browser.ts ] || [ "$1" = tests/ai-provider-browser.ts ]; then npm test && npm run test:integration; fi && node --import tsx "$1"' sh "$test_script" \
   > "$report/run.log" 2>&1 &
 test_pid=$!
 while kill -0 "$test_pid" 2>/dev/null; do

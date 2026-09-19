@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { config } from "./config.js";
 import { pool, tx, one, owned, id, audit, DomainError, type DB } from "./db.js";
 import { hash, canonical } from "./crypto.js";
 import {
@@ -523,10 +524,22 @@ export async function newTask(
     jobSnapshot: job,
     jobSample: jobs,
   };
+  const provider =
+    ai && status === "queued"
+      ? u.settings.aiProvider === "openai"
+        ? "openai"
+        : "anthropic"
+      : null;
+  const model =
+    provider === "openai"
+      ? config.OPENAI_MODEL
+      : provider === "anthropic"
+        ? config.ANTHROPIC_MODEL
+        : null;
   return one(
     db,
-    "INSERT INTO tasks(id,owner_id,kind,status,input) VALUES($1,$2,$3,$4,$5) RETURNING *",
-    [id(), owner, kind, status, JSON.stringify(snapshot)],
+    "INSERT INTO tasks(id,owner_id,kind,status,input,ai_provider,ai_model) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *",
+    [id(), owner, kind, status, JSON.stringify(snapshot), provider, model],
   );
 }
 export async function taskContext(db: DB, owner: string, taskId: string) {

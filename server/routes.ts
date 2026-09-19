@@ -889,6 +889,10 @@ export async function apiRoutes(app: FastifyInstance) {
           autopilot: config.SUBMISSIONS_ENABLED === "true",
           search: ["greenhouse", "lever", "arbeitnow"],
           transcription: "openai_byok",
+          textGeneration: {
+            anthropic: config.ANTHROPIC_MODEL,
+            openai: config.OPENAI_MODEL,
+          },
         },
         grants: (
           await pool.query(
@@ -901,6 +905,7 @@ export async function apiRoutes(app: FastifyInstance) {
         const b = z
           .object({
             mode: z.enum(["mcp", "byok", "manual"]),
+            aiProvider: z.enum(["anthropic", "openai"]).optional(),
             timezone: z.string().max(64),
             dailyTokenLimit: z.number().int().min(1000).max(1000000),
           })
@@ -911,10 +916,10 @@ export async function apiRoutes(app: FastifyInstance) {
         } catch {
           throw new DomainError("INVALID_TIMEZONE");
         }
-        await pool.query("UPDATE users SET settings=$1 WHERE id=$2", [
-          JSON.stringify(b),
-          req.user!.id,
-        ]);
+        await pool.query(
+          "UPDATE users SET settings=settings || $1::jsonb WHERE id=$2",
+          [JSON.stringify(b), req.user!.id],
+        );
         return { ok: true };
       });
       api.post("/credentials", async (req) => {

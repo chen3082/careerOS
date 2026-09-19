@@ -1,5 +1,8 @@
 # CareerOS System Design
 
+> 2026-09-19 實作更新：MCP 入口支援 Claude、ChatGPT、Codex 等相容客戶端；網站 BYOK 文字生成可選 OpenAI／Anthropic。後文原本以 Claude 示範的 MCP 流程適用其他相容客戶端，連接、權限、計費及實測範圍以 [AI-PROVIDERS.md](AI-PROVIDERS.md) 為準。
+
+
 版本：1.1，2026-09-18（美西）。狀態：開發設計，已修正獨立 review 發現的契約缺口；尚未建置或完成正式環境驗證。
 
 本文件整合既有的 [網站規格](WEB_PRODUCT_SPEC.md)、[群組規格](GROUPS_PRODUCT_SPEC.md)、[職涯資料方案](CAREER_GUIDANCE_DATA_PLAN.md) 與 [Figma](https://www.figma.com/design/jjl7ioOIAnBqsoKKW9AEvt)。資料、API 與 MCP 契約見 [SYSTEM_CONTRACTS.md](SYSTEM_CONTRACTS.md)，開發順序與驗收見 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)，獨立審查見 [SYSTEM_DESIGN_REVIEW.md](SYSTEM_DESIGN_REVIEW.md)。後續實作以這組文件的明確規則為準；原型不是已完成的服務。
