@@ -16,6 +16,7 @@ export async function accountRoutes(app: FastifyInstance) {
       "facts",
       "career_revisions",
       "jobs",
+      "catalog_saves",
       "collections",
       "collection_jobs",
       "resumes",

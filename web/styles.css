@@ -1558,3 +1558,72 @@ td .text-button span {
 .account-dialog textarea {
   width: 100%;
 }
+
+.catalog {
+  display: grid;
+  gap: 16px;
+}
+.catalog-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.catalog-intro p {
+  margin: 8px 0;
+}
+.catalog-intro button {
+  flex-shrink: 0;
+}
+.catalog-sources summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.catalog-source {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line, #e7e5df);
+}
+.catalog-source p {
+  margin: 6px 0;
+}
+.catalog-add {
+  display: grid;
+  gap: 12px;
+  max-width: 440px;
+  margin-top: 20px;
+}
+.catalog-add label {
+  display: grid;
+  gap: 6px;
+}
+.catalog-pagination {
+  justify-content: center;
+  align-items: center;
+  margin: 12px 0;
+}
+.catalog-stale {
+  color: #8c611b;
+}
+.catalog .job-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .catalog-intro,
+  .catalog-source {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .catalog .filters {
+    width: 100%;
+  }
+  .catalog .filters input,
+  .catalog .filters select {
+    min-width: 0;
+    width: 100%;
+  }
+}

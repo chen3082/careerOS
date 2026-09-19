@@ -1,3 +1,10 @@
+import {
+  catalogQuery,
+  listCatalog,
+  catalogSources,
+  requestCatalogRefresh,
+  saveCatalogJob,
+} from "./catalog.js";
 import type { FastifyInstance } from "fastify";
 import express from "express";
 import expressPlugin from "@fastify/express";
@@ -458,6 +465,34 @@ function createServer(owner: string, granted: string[]) {
         )
       ).rows,
     }),
+  );
+  tool(
+    "catalog_search",
+    "Search the shared public job catalog. Only your own saved/application state is included. This read never triggers crawling or inference.",
+    catalogQuery.shape,
+    false,
+    (a) => listCatalog(owner, a),
+  );
+  tool(
+    "catalog_sources",
+    "List public job sources, coverage and refresh status.",
+    {},
+    false,
+    () => catalogSources(),
+  );
+  tool(
+    "catalog_refresh",
+    "Queue a public source refresh for everyone; requests share a five-minute cooldown. No AI, credentials or applications are sent.",
+    { sourceId: uuid },
+    true,
+    (a) => requestCatalogRefresh(a.sourceId),
+  );
+  tool(
+    "catalog_save",
+    "Save a public catalog job as your private snapshot before resume generation or applying. Does not submit an application.",
+    { jobId: uuid },
+    true,
+    (a) => tx((db) => saveCatalogJob(db, owner, a.jobId)),
   );
   tool(
     "jobs_save",

@@ -6,6 +6,7 @@ import React, {
   useContext,
 } from "react";
 import { AccountSetupDialog, AccountSetups } from "./account-setup";
+import { JobCatalog } from "./job-catalog";
 import { Privacy } from "./privacy.js";
 import { createRoot } from "react-dom/client";
 import { api, base, message, ApiError } from "./api";
@@ -1165,6 +1166,7 @@ function Resumes() {
   );
 }
 function Jobs() {
+  const [view, setView] = useState("catalog");
   const { data: d, run, form, go, user } = useApp();
   const [accountJob, setAccountJob] = useState<string | null>(null);
   const [q, setQ] = useState(""),
@@ -1315,96 +1317,147 @@ function Jobs() {
           close={() => setAccountJob(null)}
         />
       )}
-      <div className="notice">
-        加入職缺後，先檢查登入／註冊需求。CareerOS
-        帳戶不等於公司招募帳戶；有些網站需先驗證 Email，才能送出申請。
-      </div>
       <div className="action-bar">
-        <div className="filters">
-          <input
-            aria-label="搜尋已保存職缺"
-            placeholder="搜尋職位、公司或技能…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <select
-            aria-label="市場"
-            value={market}
-            onChange={(e) => setMarket(e.target.value)}
-          >
-            <option value="">所有市場</option>
-            <option value="TW">台灣</option>
-            <option value="US">美國</option>
-            <option value="INTL">國際</option>
-          </select>
-        </div>
-        <div className="actions">
+        <div className="actions" role="group" aria-label="職缺清單範圍">
           <button
-            className="secondary"
-            onClick={() =>
-              form({
-                title: "匯入職缺",
-                fields: jobFields,
-                submit: "保存職缺",
-                action: (v) => run(() => api("/jobs", "POST", v)),
-              })
-            }
+            className={view === "catalog" ? "" : "secondary"}
+            aria-pressed={view === "catalog"}
+            onClick={() => setView("catalog")}
           >
-            貼上職缺
+            共用職缺
           </button>
-          <button onClick={search}>搜尋新機會 →</button>
-        </div>
-      </div>
-      <div className="section-head">
-        <span className="muted">{rows.length} 個已保存機會</span>
-        <small>所有來源保留原文；履歷依據你的經驗客製。</small>
-      </div>
-      {rows.length ? (
-        <div className="job-grid">
-          {rows.map((j: Row) => (
-            <article className="card job-card" key={j.id}>
-              <div className="section-head">
-                <div className="company-logo">{j.company.slice(0, 1)}</div>
-                <Badge value={j.application_status ?? "尚未申請"} />
-              </div>
-              <p className="company-name">{j.company}</p>
-              <h2>{j.title}</h2>
-              <p className="muted">
-                {j.location || "地點待確認"} · {j.market}
-              </p>
-              <p className="excerpt">{j.description.slice(0, 160)}</p>
-              <div className="section-head">
-                <small>
-                  {j.provider} · {date(j.updated_at)}
-                </small>
-                <button className="link" onClick={() => setDetail(j)}>
-                  查看詳情 →
-                </button>
-              </div>
-              <div className="actions">
-                <button onClick={() => apply(j)}>準備申請</button>
-                <button
-                  className="secondary"
-                  onClick={() => setAccountJob(j.id)}
-                >
-                  登入／註冊準備
-                </button>
-                <button className="secondary" onClick={() => collect(j)}>
-                  加入分組
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <section className="card">
-          <Empty
-            title="找到下一個值得投入的機會"
-            body="搜尋企業官網職缺，或把台灣與國際平台的職缺描述貼進來。"
+          <button
+            className={view === "mine" ? "" : "secondary"}
+            aria-pressed={view === "mine"}
+            onClick={() => setView("mine")}
           >
-            <button onClick={search}>開始搜尋</button>
-          </Empty>
-        </section>
+            我的職缺
+          </button>
+        </div>
+        <button
+          className="secondary"
+          onClick={() => {
+            setView("mine");
+            form({
+              title: "匯入職缺",
+              intro: "手動貼上的內容只會保存在你的私人職缺，不會加入共用清單。",
+              fields: jobFields,
+              submit: "保存職缺",
+              action: (v) => run(() => api("/jobs", "POST", v)),
+            });
+          }}
+        >
+          貼上職缺
+        </button>
+      </div>
+      {view === "catalog" && (
+        <JobCatalog
+          user={user}
+          onUse={async (catalogJob, kind) => {
+            const j = await run(
+              () => api("/catalog/jobs/" + catalogJob.id + "/save", "POST", {}),
+              "已保存到我的職缺",
+            );
+            if (kind === "apply") await apply(j);
+            else if (kind === "collect") await collect(j);
+            else if (kind === "account") setAccountJob(j.id);
+            else if (kind === "resume")
+              await run(
+                () =>
+                  api("/tasks", "POST", {
+                    kind: "generate_resume",
+                    input: {
+                      jobId: j.id,
+                      title: j.title,
+                      language: j.market === "TW" ? "zh-TW" : "en",
+                    },
+                  }),
+                "專用履歷任務已建立",
+              );
+          }}
+        />
+      )}
+      {view === "mine" && (
+        <>
+          <div className="notice">
+            加入職缺後，先檢查登入／註冊需求。CareerOS
+            帳戶不等於公司招募帳戶；有些網站需先驗證 Email，才能送出申請。
+          </div>
+          <div className="action-bar">
+            <div className="filters">
+              <input
+                aria-label="搜尋已保存職缺"
+                placeholder="搜尋職位、公司或技能…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <select
+                aria-label="市場"
+                value={market}
+                onChange={(e) => setMarket(e.target.value)}
+              >
+                <option value="">所有市場</option>
+                <option value="TW">台灣</option>
+                <option value="US">美國</option>
+                <option value="INTL">國際</option>
+              </select>
+            </div>
+            <div className="actions">
+              <button onClick={search}>搜尋新機會 →</button>
+            </div>
+          </div>
+          <div className="section-head">
+            <span className="muted">{rows.length} 個已保存機會</span>
+            <small>所有來源保留原文；履歷依據你的經驗客製。</small>
+          </div>
+          {rows.length ? (
+            <div className="job-grid">
+              {rows.map((j: Row) => (
+                <article className="card job-card" key={j.id}>
+                  <div className="section-head">
+                    <div className="company-logo">{j.company.slice(0, 1)}</div>
+                    <Badge value={j.application_status ?? "尚未申請"} />
+                  </div>
+                  <p className="company-name">{j.company}</p>
+                  <h2>{j.title}</h2>
+                  <p className="muted">
+                    {j.location || "地點待確認"} · {j.market}
+                  </p>
+                  <p className="excerpt">{j.description.slice(0, 160)}</p>
+                  <div className="section-head">
+                    <small>
+                      {j.provider} · {date(j.updated_at)}
+                    </small>
+                    <button className="link" onClick={() => setDetail(j)}>
+                      查看詳情 →
+                    </button>
+                  </div>
+                  <div className="actions">
+                    <button onClick={() => apply(j)}>準備申請</button>
+                    <button
+                      className="secondary"
+                      onClick={() => setAccountJob(j.id)}
+                    >
+                      登入／註冊準備
+                    </button>
+                    <button className="secondary" onClick={() => collect(j)}>
+                      加入分組
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <section className="card">
+              <Empty
+                title="找到下一個值得投入的機會"
+                body="搜尋企業官網職缺，或把台灣與國際平台的職缺描述貼進來。"
+              >
+                <button onClick={search}>開始搜尋</button>
+              </Empty>
+            </section>
+          )}
+        </>
       )}
       {detail && (
         <div className="overlay">

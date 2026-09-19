@@ -270,6 +270,7 @@ try {
   );
   const page = await context.newPage();
   await page.goto(config.PUBLIC_URL + "/#jobs");
+  await page.getByRole("button", { name: "我的職缺", exact: true }).click();
   await page
     .getByRole("button", { name: "登入／註冊準備", exact: true })
     .click();

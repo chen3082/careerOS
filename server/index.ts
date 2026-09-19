@@ -9,6 +9,7 @@ import path from "node:path";
 import { config } from "./config.js";
 import { pool, one, DomainError } from "./db.js";
 import { authRoutes, requireUser } from "./auth.js";
+import { catalogRoutes } from "./catalog.js";
 import { apiRoutes } from "./routes.js";
 import { groupRoutes } from "./groups.js";
 import { assetRoutes } from "./assets.js";
@@ -118,6 +119,7 @@ export async function buildApp(
   await authRoutes(app);
   await googleLoginRoutes(app, options.googleVerifier);
   await apiRoutes(app);
+  await catalogRoutes(app);
   await submissionRoutes(app, options.submissionAcceptanceEngine);
   await groupRoutes(app);
   await assetRoutes(app);

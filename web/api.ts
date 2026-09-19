@@ -8,6 +8,12 @@ export class ApiError extends Error {
   }
 }
 const labels: Record<string, string> = {
+  CATALOG_SOURCE_UNAVAILABLE:
+    "來源尚未設定或已暫停，請管理員在共用清單新增來源",
+  CATALOG_JOB_UNAVAILABLE: "來源目前未列出這個職缺，請重新載入並確認原始職缺",
+  CATALOG_SOURCE_LIMIT: "已達 50 個來源上限，請先檢查現有來源",
+  CATALOG_SOURCE_EXISTS: "此來源已存在",
+
   ACCOUNT_SPECIFIC_JOB_REQUIRED: "請使用單一職缺網址，不是公司首頁或動態牆",
   ACCOUNT_UNSUPPORTED_SITE: "這個網站目前尚未支援帳戶協助",
   ACCOUNT_SETUP_CLAIMED_OR_CHANGED:
