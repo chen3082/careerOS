@@ -108,10 +108,11 @@ try {
   await dashboard();
   await settings();
   await page
-    .getByRole("button", { name: "解除 Google 登入綁定", exact: true })
+    .getByRole("button", { name: "解除 Google 登入", exact: true })
     .click();
   await page
-    .getByLabel("目前密碼", { exact: true })
+    .getByRole("dialog")
+    .getByLabel(/^目前密碼/)
     .fill("synthetic-browser-password-123");
   await page.getByRole("button", { name: "解除並登出", exact: true }).click();
   await page.getByLabel("Email", { exact: true }).waitFor();
@@ -142,13 +143,15 @@ try {
     .getByRole("button", { name: "重新驗證 Google", exact: true })
     .click();
   await google().waitFor();
-  const sentChallenge = page.waitForRequest(
-    (r) =>
-      r.url().endsWith("/api/auth/logout") &&
-      (r.headers().cookie ?? "").includes("careeros_google="),
+  const sentChallenge = page.waitForRequest((r) =>
+    r.url().endsWith("/api/auth/logout"),
   );
   await page.getByRole("button", { name: "登出", exact: true }).click();
-  await sentChallenge;
+  assert.ok(
+    ((await (await sentChallenge).allHeaders()).cookie ?? "").includes(
+      "careeros_google=",
+    ),
+  );
   await page.getByLabel("Email", { exact: true }).waitFor();
   check("Actual browser sends the Google challenge cookie to logout");
   invalidNonce = true;
