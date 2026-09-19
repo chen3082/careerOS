@@ -5,6 +5,7 @@ import {
   factSchema,
   resumeSchema,
   manualEventSchema,
+  manualApplicationSchema,
   factsMarkdown,
   jobSchema,
 } from "./schemas.js";
@@ -268,9 +269,24 @@ export async function applyManualEvent(db: DB, owner: string, input: unknown) {
     const resume = app.resume_id
       ? await owned(db, "resumes", owner, app.resume_id)
       : null;
+    const external = app.external_resume_asset_id
+      ? await owned(db, "assets", owner, app.external_resume_asset_id)
+      : null;
     const snapshot = {
       job,
       resume,
+      externalResume: external
+        ? {
+            id: external.id,
+            name: external.name,
+            mime: external.mime,
+            sha256: external.sha256,
+            size: external.size,
+          }
+        : null,
+      resumeLabel: app.external_resume_name ?? "",
+      submissionChannel: app.submission_channel ?? "",
+      submittedAt: b.occurredAt,
       recordedAt: new Date().toISOString(),
       source: "user_reported",
       note: "User reports this resume version was used. External delivery is not independently verified.",
@@ -318,6 +334,113 @@ export async function applyManualEvent(db: DB, owner: string, input: unknown) {
     "UPDATE applications SET status=$1,version=version+1,submitted_at=CASE WHEN $2 THEN $3::timestamptz ELSE submitted_at END WHERE id=$4 AND owner_id=$5 RETURNING *",
     [status, b.type === "submitted", b.occurredAt, app.id, owner],
   );
+}
+export async function recordManualApplication(
+  db: DB,
+  owner: string,
+  input: unknown,
+) {
+  const b = manualApplicationSchema.parse(input);
+  await lockUser(db, owner);
+  if (new Date(b.occurredAt).getTime() > Date.now() + 60000)
+    throw new DomainError("EVENT_CANNOT_BE_IN_FUTURE", 422);
+  if (b.url) {
+    const url = new URL(b.url);
+    if (
+      !["https:", "http:"].includes(url.protocol) ||
+      url.username ||
+      url.password
+    )
+      throw new DomainError("UNSAFE_URL", 422);
+  }
+  if (b.resumeId) await owned(db, "resumes", owner, b.resumeId);
+  const external = b.externalResumeAssetId
+    ? await owned(db, "assets", owner, b.externalResumeAssetId)
+    : null;
+  if (
+    external &&
+    ![
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ].includes(external.mime)
+  )
+    throw new DomainError("RESUME_FILE_REQUIRED", 422);
+  // Reuse saved jobs without replacing their existing description or provider identity.
+  let job = await one(
+    db,
+    "SELECT * FROM jobs WHERE owner_id=$1 AND (($2<>'' AND url=$2) OR ($2='' AND lower(company)=lower($3) AND lower(title)=lower($4) AND market=$5)) ORDER BY created_at LIMIT 1",
+    [owner, b.url, b.company, b.title, b.market],
+  );
+  if (
+    job &&
+    (job.company.toLowerCase() !== b.company.toLowerCase() ||
+      job.title.toLowerCase() !== b.title.toLowerCase() ||
+      job.market !== b.market)
+  )
+    throw new DomainError("MANUAL_JOB_DETAILS_CONFLICT", 409);
+  if (!job)
+    job = await saveJob(
+      db,
+      owner,
+      {
+        title: b.title,
+        company: b.company,
+        market: b.market,
+        url: b.url,
+        description: b.description || "本人補登已投遞；未提供職缺描述。",
+      },
+      "manual",
+      "reported:" +
+        hash(
+          canonical([
+            b.company.toLowerCase(),
+            b.title.toLowerCase(),
+            b.market,
+            b.url,
+          ]),
+        ),
+    );
+  if (
+    job.company.toLowerCase() !== b.company.toLowerCase() ||
+    job.title.toLowerCase() !== b.title.toLowerCase() ||
+    job.market !== b.market
+  )
+    throw new DomainError("MANUAL_JOB_DETAILS_CONFLICT", 409);
+  const reference = await createApplication(db, owner, job.id, b.resumeId);
+  const application = await owned(
+    db,
+    "applications",
+    owner,
+    reference.id,
+    true,
+  );
+  if (application.submitted_at) throw new DomainError("ALREADY_SUBMITTED", 409);
+  // Backfilling a real past submission does not lower an existing interview/offer state.
+  await db.query(
+    "UPDATE authorizations SET revoked_at=now() WHERE owner_id=$1 AND dossier_id IN (SELECT id FROM dossiers WHERE application_id=$2)",
+    [owner, application.id],
+  );
+  await db.query(
+    "UPDATE applications SET resume_id=$1,external_resume_asset_id=$2,external_resume_name=$3,submission_channel=$4,notes=$5,origin='user_reported' WHERE id=$6 AND owner_id=$7",
+    [
+      b.resumeId ?? null,
+      external?.id ?? null,
+      b.externalResumeName || external?.name || "",
+      b.channel,
+      b.notes,
+      application.id,
+      owner,
+    ],
+  );
+  const recorded = await applyManualEvent(db, owner, {
+    applicationId: application.id,
+    type: "submitted",
+    occurredAt: b.occurredAt,
+    expectedVersion: application.version,
+    notes: b.notes,
+  });
+  await audit(db, owner, "application.manually_recorded", application.id);
+  return recorded;
 }
 export async function prepareDossier(db: DB, owner: string, appId: string) {
   await lockUser(db, owner);

@@ -18,6 +18,9 @@ type Field = {
   required?: boolean;
   placeholder?: string;
   help?: string;
+  accept?: string;
+  emptyLabel?: string;
+  visibleWhen?: { field: string; value: string };
 };
 const names: Record<string, string> = {
   dashboard: "求職總覽",
@@ -73,6 +76,12 @@ const kinds: Record<string, string> = {
   sync_google: "同步回覆",
 };
 const date = (d: any) => (d ? new Date(d).toLocaleDateString("zh-TW") : "—");
+const localDateTime = () => {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+};
 const options = (rows: Row[], label: (r: Row) => string) =>
   rows.map((r) => ({ value: r.id, label: label(r) }));
 const Badge = ({ value }: { value: string }) => (
@@ -125,6 +134,14 @@ const useApp = () => useContext(Context);
 function FormDialog({ modal, close }: { modal: Modal; close: () => void }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [fieldValues, setFieldValues] = useState<Row>(() =>
+    Object.fromEntries(
+      modal.fields.map((f) => [
+        f.name,
+        f.value ?? (f.required ? (f.options?.[0]?.value ?? "") : ""),
+      ]),
+    ),
+  );
   const formRef = useRef<HTMLFormElement>(null);
   const busyRef = useRef(busy);
   busyRef.current = busy;
@@ -193,6 +210,11 @@ function FormDialog({ modal, close }: { modal: Modal; close: () => void }) {
         {modal.intro && <p className="muted">{modal.intro}</p>}
         <form
           ref={formRef}
+          onChange={(e) =>
+            setFieldValues(
+              Object.fromEntries(new FormData(e.currentTarget).entries()),
+            )
+          }
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
@@ -200,6 +222,14 @@ function FormDialog({ modal, close }: { modal: Modal; close: () => void }) {
             const values = Object.fromEntries(
               new FormData(e.currentTarget).entries(),
             );
+            for (const f of modal.fields) {
+              if (f.type === "file") {
+                const input = e.currentTarget.elements.namedItem(
+                  f.name,
+                ) as HTMLInputElement | null;
+                if (input?.files?.[0]) values[f.name] = input.files[0];
+              }
+            }
             try {
               await modal.action(values);
               close();
@@ -210,46 +240,58 @@ function FormDialog({ modal, close }: { modal: Modal; close: () => void }) {
             }
           }}
         >
-          {modal.fields.map((f) => (
-            <label className="field" key={f.name}>
-              <span>
-                {f.label}
-                {f.required ? " *" : ""}
-              </span>
-              {f.type === "textarea" ? (
-                <textarea
-                  name={f.name}
-                  defaultValue={f.value}
-                  placeholder={f.placeholder}
-                  required={f.required}
-                  rows={6}
-                />
-              ) : f.options ? (
-                <select
-                  name={f.name}
-                  defaultValue={f.value}
-                  required={f.required}
-                >
-                  {!f.required && <option value="">不指定</option>}
-                  {f.options.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  name={f.name}
-                  type={f.type ?? "text"}
-                  defaultValue={f.value}
-                  placeholder={f.placeholder}
-                  required={f.required}
-                  step={f.type === "number" ? "any" : undefined}
-                />
-              )}{" "}
-              {f.help && <small>{f.help}</small>}
-            </label>
-          ))}
+          {modal.fields
+            .filter(
+              (f) =>
+                !f.visibleWhen ||
+                fieldValues[f.visibleWhen.field] === f.visibleWhen.value,
+            )
+            .map((f) => (
+              <label className="field" key={f.name}>
+                <span>
+                  {f.label}
+                  {f.required ? " *" : ""}
+                </span>
+                {f.type === "textarea" ? (
+                  <textarea
+                    name={f.name}
+                    defaultValue={f.value}
+                    placeholder={f.placeholder}
+                    required={f.required}
+                    rows={6}
+                    disabled={busy}
+                  />
+                ) : f.options ? (
+                  <select
+                    name={f.name}
+                    defaultValue={f.value}
+                    required={f.required}
+                    disabled={busy}
+                  >
+                    {!f.required && (
+                      <option value="">{f.emptyLabel ?? "不指定"}</option>
+                    )}
+                    {f.options.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    name={f.name}
+                    type={f.type ?? "text"}
+                    defaultValue={f.value}
+                    placeholder={f.placeholder}
+                    required={f.required}
+                    disabled={busy}
+                    accept={f.accept}
+                    step={f.type === "number" ? "any" : undefined}
+                  />
+                )}{" "}
+                {f.help && <small>{f.help}</small>}
+              </label>
+            ))}
           {error && (
             <div role="alert" className="error">
               {error}
@@ -1349,6 +1391,131 @@ function Applications() {
   const { data: d, run, form, go } = useApp();
   const [detail, setDetail] = useState<Row | null>(null);
   const rows = d.items ?? [];
+  const record = async () => {
+    const resumes = await api("/resumes");
+    const fileHashes = new WeakMap<File, string>();
+    const keys = new Map<string, string>();
+    form({
+      title: "手動新增已投遞",
+      intro:
+        "記下你已經送出的申請。可以使用站內履歷、附上外部檔案，或先只記錄履歷名稱。",
+      fields: [
+        { name: "company", label: "公司", required: true },
+        { name: "title", label: "職位名稱", required: true },
+        {
+          name: "market",
+          label: "市場",
+          required: true,
+          value: "TW",
+          options: [
+            { value: "TW", label: "台灣" },
+            { value: "US", label: "美國" },
+            { value: "INTL", label: "其他／國際" },
+          ],
+        },
+        {
+          name: "occurredAt",
+          label: "投遞時間",
+          type: "datetime-local",
+          required: true,
+          value: localDateTime(),
+        },
+        {
+          name: "channel",
+          label: "投遞管道",
+          placeholder: "例如 104、LinkedIn、公司官網、Email",
+        },
+        {
+          name: "resumeId",
+          label: "使用的站內履歷",
+          emptyLabel: "外部履歷／未記錄",
+          options: options(resumes.items, (r) => r.title),
+          help: "選擇你當時實際使用的版本。",
+        },
+        {
+          name: "resumeFile",
+          label: "上傳當時的履歷",
+          type: "file",
+          accept: ".pdf,.docx",
+          visibleWhen: { field: "resumeId", value: "" },
+          help: "選填，PDF／DOCX，最多 20 MB。檔案僅自己可見。",
+        },
+        {
+          name: "externalResumeName",
+          label: "外部履歷名稱",
+          placeholder: "例如：產品經理履歷 v3",
+          visibleWhen: { field: "resumeId", value: "" },
+          help: "未上傳檔案也可以只填名稱；上傳後留白則使用檔名。",
+        },
+        {
+          name: "url",
+          label: "職缺網址",
+          type: "url",
+          placeholder: "https://…",
+        },
+        {
+          name: "notes",
+          label: "投遞備註",
+          type: "textarea",
+          placeholder: "例如：透過朋友內推，已收到系統確認信。",
+        },
+      ],
+      submit: "確認已投遞，儲存紀錄",
+      action: (v) =>
+        run(async () => {
+          if (new Date(v.occurredAt).getTime() > Date.now() + 60000)
+            throw new ApiError("EVENT_CANNOT_BE_IN_FUTURE");
+          let fileHash: string | undefined;
+          const file = v.resumeFile;
+          if (!v.resumeId && file instanceof File && file.size) {
+            if (
+              !/\.(pdf|docx)$/i.test(file.name) ||
+              file.size > 20 * 1024 * 1024
+            )
+              throw new ApiError("RESUME_FILE_REQUIRED");
+            fileHash = fileHashes.get(file);
+            if (!fileHash) {
+              const digest = await crypto.subtle.digest(
+                "SHA-256",
+                await file.arrayBuffer(),
+              );
+              fileHash = Array.from(new Uint8Array(digest), (b) =>
+                b.toString(16).padStart(2, "0"),
+              ).join("");
+              fileHashes.set(file, fileHash);
+            }
+          }
+          const payload = {
+            company: v.company,
+            title: v.title,
+            market: v.market,
+            url: v.url,
+            occurredAt: new Date(v.occurredAt).toISOString(),
+            channel: v.channel,
+            notes: v.notes,
+            ...(v.resumeId
+              ? { resumeId: v.resumeId }
+              : {
+                  externalResumeName: v.externalResumeName || "",
+                }),
+          };
+          const encoded = JSON.stringify({
+            payload,
+            fileHash,
+            name: fileHash ? file.name : null,
+          });
+          let body: unknown = payload;
+          if (fileHash) {
+            const multipart = new FormData();
+            multipart.append("metadata", JSON.stringify(payload));
+            multipart.append("file", file);
+            body = multipart;
+          }
+          if (!keys.has(encoded)) keys.set(encoded, crypto.randomUUID());
+          return api("/applications/manual", "POST", body, keys.get(encoded));
+        }, "已新增投遞紀錄，可繼續追蹤面試與 offer"),
+    });
+  };
   const edit = (a: Row) =>
     form({
       title: "更新申請進度",
@@ -1371,7 +1538,7 @@ function Applications() {
           label: "發生時間",
           type: "datetime-local",
           required: true,
-          value: new Date().toISOString().slice(0, 16),
+          value: localDateTime(),
         },
         { name: "notes", label: "來源與備註", type: "textarea" },
       ],
@@ -1417,10 +1584,11 @@ function Applications() {
   return (
     <>
       <Notice>
-        <strong>提交方式：準備文件＋本人送出</strong>
+        <strong>自己投遞，也能集中追蹤</strong>
         <p>
-          自動對外送出暫未開啟，等待私有
-          bucket、提交紀錄與來源驗證完成。你可以固定當次履歷、開啟原站申請，送出後明確補登。
+          已在求職平台、公司官網或 Email
+          送出的申請，可以直接手動新增。記下當時的履歷與投遞時間，後續面試、面經與
+          offer 都接在同一筆紀錄。
         </p>
       </Notice>
       <div className="pipeline">
@@ -1446,9 +1614,12 @@ function Applications() {
       <section className="card">
         <div className="section-head">
           <h2>我的申請</h2>
-          <button className="secondary" onClick={() => go("jobs")}>
-            ＋ 從職缺建立
-          </button>
+          <div className="actions">
+            <button className="secondary" onClick={() => go("jobs")}>
+              從職缺準備申請
+            </button>
+            <button onClick={record}>＋ 手動新增已投遞</button>
+          </div>
         </div>
         {rows.length ? (
           <div className="table-scroll">
@@ -1477,19 +1648,28 @@ function Applications() {
                       </button>
                     </td>
                     <td>
-                      {a.resume_title || (
-                        <button
-                          className="link"
-                          onClick={() => chooseResume(a)}
-                        >
-                          選擇履歷
-                        </button>
-                      )}
+                      {a.resume_title ||
+                        a.external_resume_name ||
+                        (a.submitted_at ? (
+                          "未記錄履歷"
+                        ) : (
+                          <button
+                            className="link"
+                            onClick={() => chooseResume(a)}
+                          >
+                            選擇履歷
+                          </button>
+                        ))}
                     </td>
                     <td>
                       <Badge value={a.status} />
                     </td>
-                    <td>{date(a.submitted_at)}</td>
+                    <td>
+                      {date(a.submitted_at)}
+                      {a.submission_channel && (
+                        <small>{a.submission_channel}</small>
+                      )}
+                    </td>
                     <td>
                       <div className="actions">
                         {!a.submitted_at && (
@@ -1523,7 +1703,7 @@ function Applications() {
         ) : (
           <Empty
             title="每份申請，都有自己的時間軸"
-            body="從職缺頁建立申請，連結你準備好的履歷。後續面試、面經與 offer 都能接在同一筆紀錄。"
+            body="已經自行投遞？點上方「手動新增已投遞」就能記錄，不需要先建立職缺或履歷。"
           >
             <button onClick={() => go("jobs")}>找職缺 →</button>
           </Empty>
@@ -1566,22 +1746,38 @@ function Applications() {
             {detail.dossiers.map((s: Row) => (
               <div className="list-row" key={s.id}>
                 <div className="grow">
-                  <strong>{s.snapshot.resume.title}</strong>
+                  <strong>
+                    {s.snapshot.resume?.title ||
+                      s.snapshot.resumeLabel ||
+                      s.snapshot.externalResume?.name ||
+                      "未記錄履歷"}
+                  </strong>
                   <small>
-                    {date(s.created_at)} · {s.hash.slice(0, 12)}
+                    {date(s.snapshot.submittedAt || s.created_at)}
+                    {s.snapshot.submissionChannel
+                      ? " · " + s.snapshot.submissionChannel
+                      : ""}{" "}
+                    ·{" "}
+                    {s.snapshot.source === "user_reported"
+                      ? "本人補登"
+                      : "準備快照"}
                   </small>
                 </div>
-                <a
-                  className="button secondary"
-                  href={
-                    base +
-                    "/api/resumes/" +
-                    s.snapshot.resume.id +
-                    "/export/pdf"
-                  }
-                >
-                  當時履歷 PDF
-                </a>
+                {(s.snapshot.resume || s.snapshot.externalResume) && (
+                  <a
+                    className="button secondary"
+                    href={
+                      s.snapshot.resume
+                        ? base +
+                          "/api/resumes/" +
+                          s.snapshot.resume.id +
+                          "/export/pdf"
+                        : base + "/api/assets/" + s.snapshot.externalResume.id
+                    }
+                  >
+                    {s.snapshot.resume ? "當時履歷 PDF" : "下載當時履歷"}
+                  </a>
+                )}
               </div>
             ))}
             {detail.job.url && (
@@ -1591,7 +1787,7 @@ function Applications() {
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                前往原站申請 ↗
+                查看原始職缺 ↗
               </a>
             )}
           </section>
@@ -3206,7 +3402,7 @@ const endpoints: Record<string, string> = {
   settings: "/settings",
 };
 function App() {
-  const [user, setUser] = useState<Row | null>(null),
+  const [user, updateUser] = useState<Row | null>(null),
     [authLoading, setAuthLoading] = useState(true),
     [route, setRoute] = useState("dashboard"),
     [data, setData] = useState<Row>({}),
@@ -3217,6 +3413,27 @@ function App() {
     [refresh, setRefresh] = useState(0),
     [mobile, setMobile] = useState(false),
     [consent, setConsent] = useState("");
+  const sessionGeneration = useRef(0);
+  const generation = sessionGeneration.current;
+  const sessionCurrent = () => generation === sessionGeneration.current;
+  const setUser = (next: Row | null) => {
+    sessionGeneration.current += 1;
+    setModal(null);
+    setToast("");
+    updateUser(next);
+  };
+  // Async requests retain the initiating render's generation across logout/login.
+  const form = (next: Modal) => {
+    if (sessionCurrent())
+      setModal({
+        ...next,
+        action: (values) => {
+          if (!sessionCurrent())
+            return Promise.reject(new ApiError("LOGIN_REQUIRED"));
+          return next.action(values);
+        },
+      });
+  };
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedRoute = useRef("");
   const notify = (s: string) => {
@@ -3241,12 +3458,15 @@ function App() {
   const reload = () => setRefresh((x) => x + 1);
   const run = async (fn: () => Promise<any>, success = "已保存") => {
     try {
+      if (!sessionCurrent()) throw new ApiError("LOGIN_REQUIRED");
       const r = await fn();
-      reload();
-      notify(success);
+      if (sessionCurrent()) {
+        reload();
+        notify(success);
+      }
       return r;
     } catch (e) {
-      notify(message(e));
+      if (sessionCurrent()) notify(message(e));
       throw e;
     }
   };
@@ -3358,9 +3578,7 @@ function App() {
     settings: <Settings />,
   };
   return (
-    <Context.Provider
-      value={{ user, data, run, form: setModal, go, notify, reload }}
-    >
+    <Context.Provider value={{ user, data, run, form, go, notify, reload }}>
       <div className="app">
         <aside className={"sidebar " + (mobile ? "open" : "")}>
           <a className="wordmark" href="#dashboard">

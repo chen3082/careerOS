@@ -33,6 +33,11 @@ const labels: Record<string, string> = {
   AUDIO_INVALID_OR_OVER_3_MINUTES: "音檔無法解析或超過三分鐘，請裁剪或改用 WAV",
   EXPORT_BUSY_TRY_AGAIN: "正在產生另一份文件，請稍後重試",
   TRANSFER_GROUP_OWNER_FIRST: "請先移轉或刪除你擁有的小組",
+  EVENT_CANNOT_BE_IN_FUTURE: "投遞時間不能在未來，請檢查日期與時間",
+  RESUME_FILE_REQUIRED: "履歷附件僅支援 PDF 或 DOCX，單檔最多 20 MB",
+  UNSAFE_URL: "請填寫不含帳號密碼的 http 或 https 職缺網址",
+  MANUAL_JOB_DETAILS_CONFLICT:
+    "此網址已對應其他職缺資料，請核對公司、職位與市場，或從既有申請更新",
 };
 export const message = (e: unknown) =>
   e instanceof ApiError
@@ -44,6 +49,7 @@ export async function api<T = any>(
   path: string,
   method = "GET",
   data?: unknown,
+  idempotencyKey?: string,
 ): Promise<T> {
   const response = await fetch(base + "/api" + path, {
     method,
@@ -52,7 +58,9 @@ export async function api<T = any>(
       ...(data instanceof FormData
         ? {}
         : { "content-type": "application/json" }),
-      ...(method !== "GET" ? { "idempotency-key": crypto.randomUUID() } : {}),
+      ...(method !== "GET"
+        ? { "idempotency-key": idempotencyKey ?? crypto.randomUUID() }
+        : {}),
     },
     body:
       data === undefined

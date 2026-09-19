@@ -59,6 +59,28 @@ export const manualEventSchema = z
     expectedVersion: z.number().int().nonnegative(),
   })
   .strict();
+export const manualApplicationSchema = z
+  .object({
+    company: z.string().trim().min(1).max(200),
+    title: z.string().trim().min(1).max(200),
+    market: z.enum(["TW", "US", "INTL"]),
+    url: z.string().trim().url().max(2000).or(z.literal("")).default(""),
+    description: z.string().trim().max(20000).default(""),
+    occurredAt: z.string().datetime(),
+    channel: z.string().trim().max(100).default(""),
+    notes: z.string().trim().max(5000).default(""),
+    resumeId: uuid.optional(),
+    externalResumeAssetId: uuid.optional(),
+    externalResumeName: z.string().trim().max(160).default(""),
+  })
+  .strict()
+  .refine(
+    (b) => !b.resumeId || (!b.externalResumeAssetId && !b.externalResumeName),
+    {
+      message: "Choose a platform resume or an external resume, not both",
+      path: ["resumeId"],
+    },
+  );
 export const taskSchema = z
   .object({
     kind: z.enum([

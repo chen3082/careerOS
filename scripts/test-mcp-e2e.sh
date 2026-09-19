@@ -5,11 +5,18 @@ cd "$(dirname "$0")/.."
 umask 077
 [[ $(id -u) = 0 ]] || { echo "Run with sudo for Docker access" >&2; exit 1; }
 command -v python3 >/dev/null
-[[ -f tests/mcp-e2e.ts ]] || exit 1
+case "${CAREEROS_E2E_SCENARIO:-mcp}" in
+  mcp) test_script=tests/mcp-e2e.ts ;;
+  manual) test_script=tests/manual-applications.ts ;;
+  *) echo "Unknown E2E scenario" >&2; exit 1 ;;
+esac
+image_ref="${CAREEROS_E2E_IMAGE:-careeros:local}"
+[[ "$image_ref" = careeros:* ]] || { echo "A CareerOS image is required" >&2; exit 1; }
+[[ -f "$test_script" ]] || exit 1
 [[ -f dist/web/index.html ]] || { echo "Build the candidate frontend first: npm run build" >&2; exit 1; }
 available=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
 [[ "$available" -ge 1700000 ]] || { echo "Insufficient safe host memory headroom; no test containers started" >&2; exit 1; }
-docker image inspect careeros:local >/dev/null
+docker image inspect "$image_ref" >/dev/null
 docker image inspect postgres:17-bookworm >/dev/null
 run="careeros-mcp-e2e-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 runner="$run-runner"
@@ -106,7 +113,7 @@ for attempt in $(seq 1 40); do
   sleep 1
 done
 [[ "$ready" = true ]] || { echo "Test database startup failed" >&2; exit 1; }
-docker image inspect --format '{{.Id}}' careeros:local > "$report/application-image.txt"
+docker image inspect --format '{{.Id}}' "$image_ref" > "$report/application-image.txt"
 (cd dist/web && find . -type f -exec sha256sum {} + | sort) > "$report/frontend-sha256.txt"
 # No published ports, no application volumes, no paid providers, no Internet egress.
 timeout --signal=TERM --kill-after=10s 12m docker run --name "$runner" --network "$network" \
@@ -117,7 +124,7 @@ timeout --signal=TERM --kill-after=10s 12m docker run --name "$runner" --network
   --mount "type=bind,src=$PWD/dist,dst=/app/dist,readonly" \
   --mount "type=bind,src=$report,dst=/tmp/careeros-mcp-e2e-report" \
   --log-opt max-size=4m --log-opt max-file=1 \
-  careeros:local sh -c 'npm run migrate && node --import tsx tests/mcp-e2e.ts' \
+  "$image_ref" sh -c 'npm run migrate && node --import tsx "$1"' sh "$test_script" \
   > "$report/run.log" 2>&1 &
 test_pid=$!
 while kill -0 "$test_pid" 2>/dev/null; do

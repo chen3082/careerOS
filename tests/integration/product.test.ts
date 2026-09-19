@@ -9,8 +9,13 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { taskContext } from "../../server/domain.js";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { decrypt } from "../../server/crypto.js";
+import {
+  saveAssetInTransaction,
+  removeUncommittedAsset,
+  readAsset,
+} from "../../server/assets.js";
 if (!new URL(config.DATABASE_URL).pathname.endsWith("_test"))
   throw new Error("Integration tests require a dedicated *_test database");
 const app = await buildApp();
@@ -320,6 +325,247 @@ test("groups preserve independent application status and revoke membership acces
     "/groups/" + g.id + "/save-job",
     { jobId: shared.id },
     404,
+  );
+});
+test("manual applications work without career facts, freeze evidence and prevent duplicates", async () => {
+  const body = {
+    company: "Fictional Manual Company",
+    title: "Frontend Engineer",
+    market: "TW",
+    occurredAt: "2025-06-15T02:30:00.000Z",
+    channel: "104",
+    externalResumeName: "External CV v3",
+    notes: "Synthetic manually reported submission",
+  };
+  const requestKey = randomUUID();
+  const recorded = (
+    await call(b, "POST", "/applications/manual", body, 200, requestKey)
+  ).json();
+  assert.equal(recorded.status, "submitted");
+  assert.equal(new Date(recorded.submitted_at).toISOString(), body.occurredAt);
+  assert.equal(recorded.origin, "user_reported");
+  assert.equal(
+    (
+      await call(b, "POST", "/applications/manual", body, 200, requestKey)
+    ).json().id,
+    recorded.id,
+  );
+  await call(b, "POST", "/applications/manual", body, 409);
+  const detail = (await call(b, "GET", "/applications/" + recorded.id)).json();
+  assert.equal(detail.events.length, 1);
+  assert.equal(detail.dossiers.length, 1);
+  assert.equal(detail.dossiers[0].snapshot.resume, null);
+  assert.equal(detail.dossiers[0].snapshot.externalResume, null);
+  assert.equal(detail.dossiers[0].snapshot.resumeLabel, "External CV v3");
+  assert.equal(detail.dossiers[0].snapshot.submissionChannel, "104");
+  assert.equal((await call(b, "GET", "/career")).json().facts.length, 0);
+  await call(a, "GET", "/applications/" + recorded.id, undefined, 404);
+  await call(
+    b,
+    "POST",
+    "/applications/manual",
+    {
+      ...body,
+      title: "Future",
+      occurredAt: new Date(Date.now() + 86400000).toISOString(),
+    },
+    422,
+  );
+  await call(
+    b,
+    "POST",
+    "/applications/manual",
+    { ...body, title: "Unsafe", url: "javascript:alert(1)" },
+    422,
+  );
+  await call(
+    b,
+    "POST",
+    "/applications/manual",
+    { ...body, externalResumeName: "", resumeId: resume.id },
+    404,
+  );
+  await call(
+    a,
+    "POST",
+    "/applications/manual",
+    { ...body, resumeId: resume.id },
+    422,
+  );
+});
+test("manual backfill reuses saved job/application, preserves description and snapshots the selected version", async () => {
+  const saved = (
+    await call(a, "POST", "/jobs", {
+      title: "Manual Backend",
+      company: "Fictional Existing Company",
+      market: "US",
+      description:
+        "Original full job description must survive a brief manual entry.",
+      url: "https://example.test/manual-backend",
+    })
+  ).json();
+  const draft = (
+    await call(a, "POST", "/applications", { jobId: saved.id })
+  ).json();
+  const recorded = (
+    await call(a, "POST", "/applications/manual", {
+      title: saved.title,
+      company: saved.company,
+      market: saved.market,
+      url: saved.url,
+      occurredAt: "2025-07-03T14:00:00.000Z",
+      resumeId: resume.id,
+      channel: "Company website",
+    })
+  ).json();
+  assert.equal(recorded.id, draft.id);
+  const detail = (await call(a, "GET", "/applications/" + recorded.id)).json();
+  assert.equal(detail.job.description, saved.description);
+  assert.equal(detail.dossiers[0].snapshot.resume.id, resume.id);
+  assert.equal(detail.dossiers[0].snapshot.source, "user_reported");
+});
+test("external application attachments commit atomically, replay safely and stay private", async () => {
+  const boundary = "CareerOSManualFixture";
+  const metadata = {
+    company: "Fictional Uploaded Resume",
+    title: "Engineer",
+    market: "TW",
+    occurredAt: "2025-08-01T01:00:00.000Z",
+  };
+  const upload = async (
+    body: any,
+    key = randomUUID(),
+    file = "%PDF-1.4\nFICTIONAL TEST FIXTURE\n",
+  ) =>
+    app.inject({
+      method: "POST",
+      url: config.basePath + "/api/applications/manual",
+      headers: {
+        cookie: b.cookie,
+        origin,
+        "idempotency-key": key,
+        "content-type": "multipart/form-data; boundary=" + boundary,
+      },
+      payload: Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="metadata"\r\n\r\n${JSON.stringify(body)}\r\n--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="fixture.pdf"\r\nContent-Type: application/pdf\r\n\r\n${file}\r\n--${boundary}--\r\n`,
+      ),
+    });
+  const before = (await call(b, "GET", "/career")).json().sources.length;
+  const key = randomUUID();
+  const response = await upload(metadata, key);
+  assert.equal(response.statusCode, 200, response.body);
+  const recorded = response.json();
+  assert.equal(recorded.external_resume_name, "fixture.pdf");
+  assert.equal((await call(b, "GET", "/career")).json().sources.length, before);
+  const detail = (await call(b, "GET", "/applications/" + recorded.id)).json();
+  assert.equal(
+    detail.dossiers[0].snapshot.externalResume.sha256,
+    createHash("sha256")
+      .update("%PDF-1.4\nFICTIONAL TEST FIXTURE\n")
+      .digest("hex"),
+  );
+  assert.ok(!("storage_key" in detail.dossiers[0].snapshot.externalResume));
+  const assetId = recorded.external_resume_asset_id;
+  await call(a, "GET", "/assets/" + assetId, undefined, 404);
+  await call(
+    a,
+    "POST",
+    "/applications/manual",
+    { ...metadata, externalResumeAssetId: assetId },
+    404,
+  );
+  const files = await readdir(config.dataDir + "/assets/" + b.id);
+  const count = async () =>
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM assets WHERE owner_id=$1",
+        [b.id],
+      )
+    ).rows[0].n;
+  const beforeCount = await count();
+  assert.equal((await upload(metadata, key)).json().id, recorded.id);
+  assert.equal(
+    (await upload(metadata, key, "%PDF-1.4 CHANGED")).statusCode,
+    409,
+  );
+  assert.equal((await upload(metadata)).statusCode, 409);
+  assert.equal(
+    (
+      await upload({
+        ...metadata,
+        company: "Rollback",
+        occurredAt: "2999-01-01T00:00:00.000Z",
+      })
+    ).statusCode,
+    422,
+  );
+  assert.equal(await count(), beforeCount);
+  assert.deepEqual(await readdir(config.dataDir + "/assets/" + b.id), files);
+});
+test("attachment cleanup waits for an in-flight writer before deciding whether the file is committed", async () => {
+  const writer = await pool.connect();
+  let cleanup: Promise<void> | undefined;
+  try {
+    await writer.query("BEGIN");
+    const pid = (await writer.query("SELECT pg_backend_pid() AS pid")).rows[0]
+      .pid;
+    const bytes = Buffer.from("%PDF-1.4 FICTIONAL CONCURRENT COMMIT");
+    const asset = await saveAssetInTransaction(
+      writer,
+      b.id,
+      "committed.pdf",
+      "application/pdf",
+      bytes,
+      () => {},
+    );
+    cleanup = removeUncommittedAsset(b.id, asset.id);
+    // Observe the lock wait itself instead of relying on timing/sleeps as evidence.
+    let blocked = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const waiting = await pool.query(
+        "SELECT count(*)::int AS n FROM pg_stat_activity WHERE $1::int = ANY(pg_blocking_pids(pid))",
+        [pid],
+      );
+      if (waiting.rows[0].n > 0) {
+        blocked = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(
+      blocked,
+      true,
+      "cleanup must wait for the owner's transaction lock",
+    );
+    await writer.query("COMMIT");
+    await cleanup;
+    assert.deepEqual((await readAsset(b.id, asset.id)).data, bytes);
+  } finally {
+    await writer.query("ROLLBACK");
+    writer.release();
+    await cleanup;
+  }
+});
+test("same company and title without a URL remain separate across job markets", async () => {
+  const body = {
+    company: "Fictional Global",
+    title: "Engineer",
+    occurredAt: "2025-08-01T01:00:00.000Z",
+  };
+  const tw = (
+    await call(b, "POST", "/applications/manual", { ...body, market: "TW" })
+  ).json();
+  const us = (
+    await call(b, "POST", "/applications/manual", { ...body, market: "US" })
+  ).json();
+  assert.notEqual(tw.job_id, us.job_id);
+  assert.equal(
+    (await call(b, "GET", "/applications/" + tw.id)).json().job.market,
+    "TW",
+  );
+  assert.equal(
+    (await call(b, "GET", "/applications/" + us.id)).json().job.market,
+    "US",
   );
 });
 test("withdrawn facts invalidate future use but preserve past resume history", async () => {

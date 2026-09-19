@@ -9,7 +9,7 @@
 | 經驗庫 | 文字、Markdown、PDF、DOCX、錄音原始素材；AI 草稿經本人確認；不可覆寫的 career revision；Markdown 匯出 |
 | 履歷 | 同一份經驗生成多種方向、中英文、職缺客製；每段引用 fact ID；手動核對文字；新版本另存；固定 PDF／DOCX／Markdown 匯出 |
 | 職缺 | Greenhouse／Lever 指定公司公開職缺、Arbeitnow；關鍵字與市場篩選；任何平台可手動貼上描述／網址；私人分類 |
-| 申請 | 草稿、指定履歷、準備快照、手動確認已投遞、事件紀錄；不把準備完成當成已送出 |
+| 申請 | 草稿、指定履歷、準備快照、手動確認；可直接補登站外投遞，選站內履歷／上傳外部 PDF、DOCX／只填名稱；日期、管道與事件追蹤 |
 | 面試與 offer | 正式邀請／輪次／改期；準備與正式面試分開；文字與附件面經；offer 條件版本、期限與本人決定 |
 | 小組 | 單次邀請、共用職缺池、自己的未投／準備狀態、選擇性進度分享、文字面經快照、討論、撤銷與成員管理 |
 | 自有 Claude | Remote MCP + OAuth 2.1 PKCE；讀取資料、生成任務、保存草稿、提議狀態；網站確認權限不交給 MCP |
@@ -72,6 +72,8 @@ bash scripts/test-remote.sh
 整合測試覆蓋 session / CSRF、多租戶存取、事實撤回、不可變版本、idempotency、事件去重、準備與面試分離、offer 終態、小組撤銷、真實 MCP SDK 連接、PKCE／refresh reuse／scope，以及 PDF／DOCX 固定下載。瀏覽器流程見 `tests/browser.ts`。
 
 三位虛構人物、六版履歷的真實 HTTP MCP／瀏覽器完整驗收，包含資源限制、隔離資料庫與測後清理，見 [MCP E2E 操作文件](docs/MCP_E2E.md)。
+
+手動補登的操作、交易邊界與獨立測試見 [手動投遞紀錄](docs/MANUAL_APPLICATIONS.md)。
 
 ## 文件
 

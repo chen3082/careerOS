@@ -3,7 +3,7 @@ import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { config } from "./config.js";
 import { requireUser, sameOrigin } from "./auth.js";
-import { pool, id, owned, one, DomainError, tx } from "./db.js";
+import { pool, id, owned, one, DomainError, tx, type DB } from "./db.js";
 import { hash, encrypt, decrypt } from "./crypto.js";
 import { uuid, escapeHTML, resumeMarkdown } from "./schemas.js";
 import { z } from "zod";
@@ -22,51 +22,79 @@ const allowed = new Set([
   "audio/ogg",
 ]);
 let rendering = false;
+// The caller owns the DB transaction and registers each file for rollback cleanup.
+export async function saveAssetInTransaction(
+  db: DB,
+  owner: string,
+  name: string,
+  mime: string,
+  data: Buffer,
+  onWrite: (assetId: string) => void,
+) {
+  if (!allowed.has(mime) || data.length > 20 * 1024 * 1024)
+    throw new DomainError("FILE_TYPE_OR_SIZE_NOT_ALLOWED", 422);
+  await db.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [owner]);
+  const usage = await one(
+    db,
+    "SELECT coalesce(sum(size),0)::bigint AS bytes,count(*)::int AS files FROM assets WHERE owner_id=$1",
+    [owner],
+  );
+  if (
+    Number(usage.bytes) + data.length > 512 * 1024 * 1024 ||
+    usage.files >= 2000
+  )
+    throw new DomainError("STORAGE_QUOTA_REACHED", 413);
+  const aid = id();
+  const key = owner + "/" + aid;
+  await mkdir(path.join(config.dataDir, "assets", owner), {
+    recursive: true,
+    mode: 0o700,
+  });
+  onWrite(aid);
+  await writeFile(
+    path.join(config.dataDir, "assets", key),
+    encrypt(data.toString("base64"), config.ENCRYPTION_KEY, owner + ":" + aid),
+    { mode: 0o600, flag: "wx" },
+  );
+  return one(
+    db,
+    "INSERT INTO assets(id,owner_id,name,mime,size,sha256,storage_key) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,name,mime,size,sha256",
+    [aid, owner, name.slice(0, 160), mime, data.length, hash(data), key],
+  );
+}
+export async function removeUncommittedAsset(owner: string, assetId: string) {
+  // Wait for the writer's transaction, including an uncertain COMMIT, to finish.
+  await tx(async (db) => {
+    await db.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [owner]);
+    const committed = await one(
+      db,
+      "SELECT id FROM assets WHERE owner_id=$1 AND id=$2",
+      [owner, assetId],
+    );
+    if (!committed)
+      await unlink(path.join(config.dataDir, "assets", owner, assetId)).catch(
+        (e) => {
+          if (e.code !== "ENOENT") throw e;
+        },
+      );
+  });
+}
 export async function saveAsset(
   owner: string,
   name: string,
   mime: string,
   data: Buffer,
 ) {
-  if (!allowed.has(mime) || data.length > 20 * 1024 * 1024)
-    throw new DomainError("FILE_TYPE_OR_SIZE_NOT_ALLOWED", 422);
-  const aid = id();
-  const key = owner + "/" + aid;
+  let written: string | undefined;
   try {
-    return await tx(async (db) => {
-      await db.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [owner]);
-      const usage = await one(
-        db,
-        "SELECT coalesce(sum(size),0)::bigint AS bytes,count(*)::int AS files FROM assets WHERE owner_id=$1",
-        [owner],
-      );
-      if (
-        Number(usage.bytes) + data.length > 512 * 1024 * 1024 ||
-        usage.files >= 2000
-      )
-        throw new DomainError("STORAGE_QUOTA_REACHED", 413);
-      await mkdir(path.join(config.dataDir, "assets", owner), {
-        recursive: true,
-        mode: 0o700,
-      });
-      await writeFile(
-        path.join(config.dataDir, "assets", key),
-        encrypt(
-          data.toString("base64"),
-          config.ENCRYPTION_KEY,
-          owner + ":" + aid,
-        ),
-        { mode: 0o600, flag: "wx" },
-      );
-      return one(
-        db,
-        "INSERT INTO assets(id,owner_id,name,mime,size,sha256,storage_key) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,name,mime,size,sha256",
-        [aid, owner, name.slice(0, 160), mime, data.length, hash(data), key],
-      );
-    });
-  } catch (e) {
-    await unlink(path.join(config.dataDir, "assets", key)).catch(() => {});
-    throw e;
+    return await tx((db) =>
+      saveAssetInTransaction(db, owner, name, mime, data, (aid) => {
+        written = aid;
+      }),
+    );
+  } catch (error) {
+    if (written) await removeUncommittedAsset(owner, written).catch(() => {});
+    throw error;
   }
 }
 export async function readAsset(owner: string, aid: string) {

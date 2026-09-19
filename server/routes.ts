@@ -11,6 +11,7 @@ import {
   taskSchema,
   salarySchema,
   resumeMarkdown,
+  manualApplicationSchema,
 } from "./schemas.js";
 import {
   idempotent,
@@ -25,7 +26,9 @@ import {
   prepareDossier,
   newTask,
   lockUser,
+  recordManualApplication,
 } from "./domain.js";
+import { saveAssetInTransaction, removeUncommittedAsset } from "./assets.js";
 const key = (r: FastifyRequest) =>
   z.string().min(8).max(160).parse(r.headers["idempotency-key"]);
 const params = (r: FastifyRequest) => z.object({ id: uuid }).parse(r.params);
@@ -265,6 +268,110 @@ export async function apiRoutes(app: FastifyInstance) {
         return idempotent(req.user!.id, "application", key(req), b, (db) =>
           createApplication(db, req.user!.id, b.jobId, b.resumeId),
         );
+      });
+      api.post("/applications/manual", async (req) => {
+        const requestKey = key(req);
+        let input = req.body;
+        let file: { name: string; mime: string; data: Buffer } | undefined;
+        if (req.isMultipart()) {
+          let metadata: string | undefined;
+          for await (const part of req.parts({
+            limits: {
+              files: 1,
+              fields: 1,
+              parts: 2,
+              fileSize: 20 * 1024 * 1024,
+              fieldSize: 40000,
+            },
+          })) {
+            if (part.type === "file") {
+              if (part.fieldname !== "file")
+                throw new DomainError("INVALID_INPUT", 422);
+              const data = await part.toBuffer();
+              if (part.file.truncated)
+                throw new DomainError("FILE_TOO_LARGE", 413);
+              const mime = part.mimetype.split(";")[0];
+              if (
+                ![
+                  "application/pdf",
+                  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ].includes(mime)
+              )
+                throw new DomainError("RESUME_FILE_REQUIRED", 422);
+              if (
+                mime === "application/pdf" &&
+                !data.subarray(0, 5).equals(Buffer.from("%PDF-"))
+              )
+                throw new DomainError("INVALID_PDF", 422);
+              if (
+                mime.includes("wordprocessingml") &&
+                !data
+                  .subarray(0, 4)
+                  .equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))
+              )
+                throw new DomainError("RESUME_FILE_REQUIRED", 422);
+              file = { name: part.filename.slice(0, 160), mime, data };
+            } else {
+              if (
+                part.fieldname !== "metadata" ||
+                part.valueTruncated ||
+                typeof part.value !== "string"
+              )
+                throw new DomainError("INVALID_INPUT", 422);
+              metadata = part.value;
+            }
+          }
+          try {
+            input = JSON.parse(metadata ?? "");
+          } catch {
+            throw new DomainError("INVALID_INPUT", 422);
+          }
+        }
+        const body = manualApplicationSchema.parse(input);
+        if (file && (body.resumeId || body.externalResumeAssetId))
+          throw new DomainError("INVALID_INPUT", 422);
+        const fingerprint = {
+          body,
+          file: file
+            ? { name: file.name, mime: file.mime, sha256: hash(file.data) }
+            : null,
+        };
+        let written: string | undefined;
+        try {
+          return await idempotent(
+            req.user!.id,
+            "manual-application",
+            requestKey,
+            fingerprint,
+            async (db) => {
+              const asset = file
+                ? await saveAssetInTransaction(
+                    db,
+                    req.user!.id,
+                    file.name,
+                    file.mime,
+                    file.data,
+                    (aid) => {
+                      written = aid;
+                    },
+                  )
+                : undefined;
+              return recordManualApplication(db, req.user!.id, {
+                ...body,
+                ...(asset ? { externalResumeAssetId: asset.id } : {}),
+              });
+            },
+          );
+        } catch (error) {
+          if (written)
+            await removeUncommittedAsset(req.user!.id, written).catch(() => {
+              req.log.error(
+                { assetId: written },
+                "Uncommitted attachment cleanup deferred: storage or database unavailable",
+              );
+            });
+          throw error;
+        }
       });
       api.get("/applications/:id", async (req) => {
         const aid = params(req).id;
