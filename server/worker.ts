@@ -107,14 +107,16 @@ async function parseDocument(t: any) {
   const format = asset.mime === "application/pdf" ? "pdf" : "docx";
   const text = await new Promise<string>((resolve, reject) => {
     const child = spawn(
-      process.execPath,
-      [
-        "--max-old-space-size=192",
-        "--import",
-        "tsx",
-        "server/parse-document.ts",
-        format,
-      ],
+      format === "pdf" ? "pdftotext" : process.execPath,
+      format === "pdf"
+        ? ["-f", "1", "-l", "30", "-layout", "-enc", "UTF-8", "-", "-"]
+        : [
+            "--max-old-space-size=192",
+            "--import",
+            "tsx",
+            "server/parse-document.ts",
+            format,
+          ],
       {
         env: { PATH: process.env.PATH },
         stdio: ["pipe", "pipe", "pipe"],

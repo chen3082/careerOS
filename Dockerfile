@@ -12,6 +12,7 @@ COPY package*.json ./
 RUN npm ci --ignore-scripts && npx playwright install --with-deps chromium && \
     apt-get update && apt-get install -y --no-install-recommends fonts-noto-cjk ffmpeg && \
     rm -rf /var/lib/apt/lists/* && chmod -R a+rX /opt/browsers
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
 COPY --from=build /app/migrations ./migrations
