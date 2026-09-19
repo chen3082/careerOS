@@ -1,0 +1,44 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: careeros
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: careeros_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U careeros"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://careeros:ci-only-password@127.0.0.1:5432/careeros_test
+      PUBLIC_URL: http://127.0.0.1:3110/careeros
+      PORT: 3110
+      DATA_DIR: /tmp/careeros-test
+      ENCRYPTION_KEY: "1111111111111111111111111111111111111111111111111111111111111111"
+      BOOTSTRAP_TOKEN: ci-only-bootstrap-token-for-isolated-tests
+      SUBMISSIONS_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm test
+      - run: npm run migrate
+      - run: npm run test:integration
+      - run: node --import tsx tests/browser.ts
+      - run: npm audit --audit-level=high
