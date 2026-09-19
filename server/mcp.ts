@@ -146,6 +146,18 @@ export const oauthProvider: OAuthServerProvider = {
   async exchangeAuthorizationCode(client, code, _verifier, redirect, r) {
     target(r);
     return tx(async (db) => {
+      const owner = await one(
+        db,
+        "SELECT user_id FROM oauth_codes WHERE hash=$1 AND client_id=$2",
+        [hash(code), client.client_id],
+      );
+      if (
+        !owner ||
+        !(await one(db, "SELECT id FROM users WHERE id=$1 FOR UPDATE", [
+          owner.user_id,
+        ]))
+      )
+        throw new InvalidGrantError("Invalid code");
       const row = await one(
         db,
         "SELECT * FROM oauth_codes WHERE hash=$1 AND client_id=$2 AND expires_at>now() AND used_at IS NULL FOR UPDATE",
@@ -162,6 +174,18 @@ export const oauthProvider: OAuthServerProvider = {
   async exchangeRefreshToken(client, refresh, s, r) {
     target(r);
     const result = await tx(async (db) => {
+      const owner = await one(
+        db,
+        "SELECT user_id FROM oauth_tokens WHERE hash=$1 AND client_id=$2",
+        [hash(refresh), client.client_id],
+      );
+      if (
+        !owner ||
+        !(await one(db, "SELECT id FROM users WHERE id=$1 FOR UPDATE", [
+          owner.user_id,
+        ]))
+      )
+        return null;
       const row = await one(
         db,
         "SELECT * FROM oauth_tokens WHERE hash=$1 AND client_id=$2 AND kind='refresh' FOR UPDATE",
@@ -208,14 +232,19 @@ export const oauthProvider: OAuthServerProvider = {
   async revokeToken(client, request) {
     const row = await one(
       pool,
-      "SELECT grant_id FROM oauth_tokens WHERE hash=$1 AND client_id=$2",
+      "SELECT grant_id,user_id FROM oauth_tokens WHERE hash=$1 AND client_id=$2",
       [hash(request.token), client.client_id],
     );
     if (row)
-      await pool.query(
-        "UPDATE oauth_tokens SET revoked_at=now() WHERE grant_id=$1",
-        [row.grant_id],
-      );
+      await tx(async (db) => {
+        await db.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [
+          row.user_id,
+        ]);
+        await db.query(
+          "UPDATE oauth_tokens SET revoked_at=now() WHERE grant_id=$1",
+          [row.grant_id],
+        );
+      });
   },
 };
 function createServer(owner: string, granted: string[]) {
@@ -621,6 +650,15 @@ export async function mcpRoutes(app: FastifyInstance) {
       .parse(req.params).request;
     const b = z.object({ approve: z.boolean() }).parse(req.body);
     return tx(async (db) => {
+      await db.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [u.id]);
+      if (
+        !(await one(
+          db,
+          "SELECT 1 FROM sessions WHERE user_id=$1 AND token_hash=$2 AND expires_at>now()",
+          [u.id, hash(req.cookies.careeros_session ?? "")],
+        ))
+      )
+        throw new DomainError("LOGIN_REQUIRED", 401);
       const r = await one(
         db,
         "DELETE FROM oauth_requests WHERE id=$1 AND expires_at>now() RETURNING *",

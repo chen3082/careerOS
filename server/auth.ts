@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { config } from "./config.js";
-import { pool, one, tx, id, DomainError, audit } from "./db.js";
+import { pool, one, tx, id, DomainError, audit, type DB } from "./db.js";
 import { hash, token, passwordHash, passwordVerify } from "./crypto.js";
 export type User = {
   id: string;
@@ -11,6 +11,7 @@ export type User = {
   revision: number;
   eligibility_epoch: number;
   settings: Record<string, any>;
+  password_hash?: string | null;
 };
 declare module "fastify" {
   interface FastifyRequest {
@@ -24,6 +25,7 @@ export const publicUser = (u: User) => ({
   role: u.role,
   revision: u.revision,
   settings: u.settings,
+  hasPassword: Boolean(u.password_hash),
 });
 export async function currentUser(req: FastifyRequest) {
   const t = req.cookies.careeros_session;
@@ -47,7 +49,7 @@ export function sameOrigin(req: FastifyRequest) {
   )
     throw new DomainError("ORIGIN_NOT_ALLOWED", 403);
 }
-async function throttle(key: string) {
+export async function throttle(key: string) {
   const row = await one(
     pool,
     "INSERT INTO auth_throttles(key,count,expires_at) VALUES($1,1,now()+interval '15 minutes') ON CONFLICT(key) DO UPDATE SET count=CASE WHEN auth_throttles.expires_at<now() THEN 1 ELSE auth_throttles.count+1 END,expires_at=CASE WHEN auth_throttles.expires_at<now() THEN now()+interval '15 minutes' ELSE auth_throttles.expires_at END RETURNING count",
@@ -55,12 +57,25 @@ async function throttle(key: string) {
   );
   if (row.count > 15) throw new DomainError("TOO_MANY_ATTEMPTS", 429);
 }
+// Keep a consumed challenge for five minutes so a concurrent logout can revoke
+// the session issued by its in-flight Google request. Call under auth advisory lock.
+export async function cancelGoogleChallenge(db: DB, req: FastifyRequest) {
+  const challengeHash = hash(req.cookies.careeros_google ?? "");
+  await db.query(
+    "DELETE FROM sessions WHERE token_hash IN (SELECT completed_session_hash FROM google_login_challenges WHERE hash=$1)",
+    [challengeHash],
+  );
+  await db.query("DELETE FROM google_login_challenges WHERE hash=$1", [
+    challengeHash,
+  ]);
+}
 export async function authRoutes(app: FastifyInstance) {
   const p = config.basePath + "/api";
   app.get(p + "/auth/status", async () => ({
     registrationOpen: config.REGISTRATION_OPEN === "true",
     bootstrapAvailable: !(await one(pool, "SELECT 1 FROM users LIMIT 1")),
-    googleEnabled: Boolean(config.GOOGLE_CLIENT_ID),
+    googleEnabled: Boolean(config.GOOGLE_LOGIN_CLIENT_ID),
+    googleClientId: config.GOOGLE_LOGIN_CLIENT_ID || null,
   }));
   app.post(p + "/auth/register", async (req, reply) => {
     sameOrigin(req);
@@ -78,6 +93,7 @@ export async function authRoutes(app: FastifyInstance) {
       })
       .parse(req.body);
     const password = await passwordHash(b.password);
+    const t = token();
     const user = await tx(async (db) => {
       await db.query("SELECT pg_advisory_xact_lock(813590)");
       const first = !(await one(db, "SELECT 1 FROM users LIMIT 1"));
@@ -98,17 +114,18 @@ export async function authRoutes(app: FastifyInstance) {
       }
       if (await one(db, "SELECT 1 FROM users WHERE email=$1", [b.email]))
         throw new DomainError("REGISTRATION_UNAVAILABLE", 409);
-      return one<User>(
+      const created = await one<User>(
         db,
         "INSERT INTO users(id,email,name,password_hash,role) VALUES($1,$2,$3,$4,$5) RETURNING *",
         [id(), b.email, b.name, password, first ? "owner" : "member"],
       );
+      await cancelGoogleChallenge(db, req);
+      await db.query(
+        "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '7 days')",
+        [hash(t), created!.id],
+      );
+      return created;
     });
-    const t = token();
-    await pool.query(
-      "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '7 days')",
-      [hash(t), user!.id],
-    );
     reply.setCookie("careeros_session", t, {
       httpOnly: true,
       secure: config.production,
@@ -131,15 +148,28 @@ export async function authRoutes(app: FastifyInstance) {
       .parse(req.body);
     await throttle("login-ip:" + req.ip);
     await throttle("login-email:" + hash(b.email));
-    const u = await one(pool, "SELECT * FROM users WHERE email=$1", [b.email]);
-    const dummy = "scrypt:0123456789abcdef0123456789abcdef:" + "0".repeat(128);
-    const valid = await passwordVerify(b.password, u?.password_hash ?? dummy);
-    if (!valid || !u) throw new DomainError("INVALID_CREDENTIALS", 401);
     const t = token();
-    await pool.query(
-      "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '7 days')",
-      [hash(t), u.id],
-    );
+    const u = await tx(async (db) => {
+      await db.query("SELECT pg_advisory_xact_lock(813590)");
+      const row = await one(
+        db,
+        "SELECT * FROM users WHERE email=$1 FOR UPDATE",
+        [b.email],
+      );
+      const dummy =
+        "scrypt:0123456789abcdef0123456789abcdef:" + "0".repeat(128);
+      if (
+        !(await passwordVerify(b.password, row?.password_hash ?? dummy)) ||
+        !row
+      )
+        throw new DomainError("INVALID_CREDENTIALS", 401);
+      await cancelGoogleChallenge(db, req);
+      await db.query(
+        "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '7 days')",
+        [hash(t), row.id],
+      );
+      return row;
+    });
     reply.setCookie("careeros_session", t, {
       httpOnly: true,
       secure: config.production,
@@ -151,10 +181,24 @@ export async function authRoutes(app: FastifyInstance) {
   });
   app.post(p + "/auth/logout", async (req, reply) => {
     sameOrigin(req);
-    if (req.cookies.careeros_session)
-      await pool.query("DELETE FROM sessions WHERE token_hash=$1", [
-        hash(req.cookies.careeros_session),
+    await tx(async (db) => {
+      await db.query("SELECT pg_advisory_xact_lock(813590)");
+      await cancelGoogleChallenge(db, req);
+      await db.query("DELETE FROM sessions WHERE token_hash=$1", [
+        hash(req.cookies.careeros_session ?? ""),
       ]);
+      await db.query(
+        "DELETE FROM sessions WHERE token_hash IN (SELECT completed_session_hash FROM google_login_challenges WHERE session_hash=$1)",
+        [hash(req.cookies.careeros_session ?? "")],
+      );
+      await db.query(
+        "DELETE FROM google_login_challenges WHERE session_hash=$1",
+        [hash(req.cookies.careeros_session ?? "")],
+      );
+    });
+    reply.clearCookie("careeros_google", {
+      path: config.basePath + "/api/auth",
+    });
     reply.clearCookie("careeros_session", { path: config.basePath || "/" });
     return { ok: true };
   });

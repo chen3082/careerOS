@@ -5,9 +5,11 @@ import React, {
   createContext,
   useContext,
 } from "react";
+import { Privacy } from "./privacy.js";
 import { createRoot } from "react-dom/client";
 import { api, base, message, ApiError } from "./api";
 import "./styles.css";
+import { GoogleLogin } from "./google-login";
 type Row = Record<string, any>;
 type Field = {
   name: string;
@@ -318,6 +320,7 @@ function Auth({ onLogin }: { onLogin: (u: Row) => void }) {
     [status, setStatus] = useState<Row>({}),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const authForm = useRef<HTMLFormElement>(null);
   const invite = new URLSearchParams(location.hash.slice(1)).get("setup") ?? "";
   useEffect(() => {
     api("/auth/status").then((s) => {
@@ -362,8 +365,10 @@ function Auth({ onLogin }: { onLogin: (u: Row) => void }) {
               : "你的經驗、機會與下一步，都在這裡。"}
           </p>
           <form
+            ref={authForm}
             onSubmit={async (e) => {
               e.preventDefault();
+              if (busy) return;
               setBusy(true);
               setError("");
               const v = Object.fromEntries(new FormData(e.currentTarget));
@@ -437,6 +442,42 @@ function Auth({ onLogin }: { onLogin: (u: Row) => void }) {
               <span>→</span>
             </button>
           </form>
+          {status.googleEnabled && (
+            <>
+              <div className="auth-divider">或使用 Google 帳號</div>
+              <GoogleLogin
+                clientId={status.googleClientId}
+                intent="login"
+                invite={() =>
+                  (
+                    authForm.current?.elements.namedItem(
+                      "invite",
+                    ) as HTMLInputElement | null
+                  )?.value || invite
+                }
+                disabled={busy}
+                onBusy={setBusy}
+                onSuccess={(user) => {
+                  onLogin(user);
+                  if (invite) location.hash = "dashboard";
+                }}
+              />
+              <p className="muted">
+                <small>
+                  首次建立工作台仍需邀請碼。Google 登入只讀取基本身份與 Email。
+                </small>
+              </p>
+            </>
+          )}
+          <p className="muted">
+            <a
+              href={base + "/privacy"}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              隱私與資料使用說明
+            </a>
+          </p>
           <button
             className="link"
             onClick={() => {
@@ -3010,6 +3051,125 @@ function Tasks() {
     </>
   );
 }
+function GoogleAccount() {
+  const { user, form } = useApp();
+  const [status, setStatus] = useState<Row | null>(null);
+  const [error, setError] = useState("");
+  const [active, setActive] = useState(false);
+  const [password, setPassword] = useState("");
+  useEffect(() => {
+    let alive = true;
+    api("/auth/google/status")
+      .then((r) => {
+        if (alive) setStatus(r);
+      })
+      .catch((e) => {
+        if (alive) setError(message(e));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user.id]);
+  return (
+    <section className="card">
+      <h2>Google 登入</h2>
+      {error && <div className="error">{error}</div>}
+      {!status ? (
+        <p className="muted">正在讀取登入設定…</p>
+      ) : (
+        <>
+          <p className="muted">
+            只用於登入你的工作台，信箱與日曆需要另行連接。
+          </p>
+          {status.linked ? (
+            <p>
+              已綁定：<strong>{status.email}</strong>
+            </p>
+          ) : (
+            <p>尚未綁定 Google 帳號。</p>
+          )}
+          {!status.enabled ? (
+            <Badge value="待管理員啟用 Google 登入" />
+          ) : (
+            <>
+              {!status.linked && (
+                <label className="field">
+                  <span>目前 CareerOS 密碼</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </label>
+              )}
+              {!active && (
+                <button
+                  className="secondary"
+                  disabled={!status.linked && !password}
+                  onClick={() => setActive(true)}
+                >
+                  {status.linked
+                    ? "重新驗證 Google"
+                    : "下一步：綁定 Google 帳號"}
+                </button>
+              )}
+              {active && (
+                <GoogleLogin
+                  clientId={status.clientId}
+                  intent={status.linked ? "reauth" : "link"}
+                  password={() => password}
+                  onSuccess={() => {
+                    setPassword("");
+                    location.reload();
+                  }}
+                />
+              )}
+              {status.linked && (
+                <p className="muted">
+                  <small>
+                    {status.recentlyVerified
+                      ? "已完成 Google 驗證，可於五分鐘內執行帳戶操作。"
+                      : "只有 Google 登入的帳號，設定密碼或刪除資料前需重新驗證。"}
+                  </small>
+                </p>
+              )}
+            </>
+          )}
+          {status.linked && status.hasPassword && (
+            <p>
+              <button
+                className="link danger"
+                onClick={() =>
+                  form({
+                    title: "解除 Google 登入綁定",
+                    intro:
+                      "解除後請改用密碼登入；所有裝置會登出並撤銷 MCP 授權。信箱與日曆連接另行管理。",
+                    fields: [
+                      {
+                        name: "currentPassword",
+                        label: "目前密碼",
+                        type: "password",
+                        required: true,
+                      },
+                    ],
+                    submit: "解除並登出",
+                    action: async (v) => {
+                      await api("/auth/google/unlink", "POST", v);
+                      location.reload();
+                    },
+                  })
+                }
+              >
+                解除 Google 登入
+              </button>
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
 function Settings() {
   const { data: d, user, run, form, notify } = useApp();
   const settings = d.settings ?? user.settings;
@@ -3234,6 +3394,7 @@ function Settings() {
               <p className="muted">目前沒有 API 使用紀錄。</p>
             )}
           </section>
+          <GoogleAccount />
           <section className="card">
             <h2>帳戶與資料</h2>
             <p className="muted">
@@ -3250,15 +3411,21 @@ function Settings() {
                 className="secondary"
                 onClick={() =>
                   form({
-                    title: "更換密碼",
-                    intro: "完成後將登出所有裝置並撤銷 MCP 授權。",
+                    title:
+                      user.hasPassword === false ? "設定登入密碼" : "更換密碼",
+                    intro:
+                      "完成後將登出所有裝置並撤銷 MCP 授權。只有 Google 登入的帳號請先在上方重新驗證。",
                     fields: [
-                      {
-                        name: "currentPassword",
-                        label: "目前密碼",
-                        type: "password",
-                        required: true,
-                      },
+                      ...(user.hasPassword === false
+                        ? []
+                        : [
+                            {
+                              name: "currentPassword",
+                              label: "目前密碼",
+                              type: "password",
+                              required: true,
+                            },
+                          ]),
                       {
                         name: "newPassword",
                         label: "新密碼（至少 12 字元）",
@@ -3274,7 +3441,7 @@ function Settings() {
                   })
                 }
               >
-                更換密碼
+                {user.hasPassword === false ? "設定登入密碼" : "更換密碼"}
               </button>
               {user.role !== "owner" && (
                 <button
@@ -3283,14 +3450,18 @@ function Settings() {
                     form({
                       title: "刪除帳戶與私人資料",
                       intro:
-                        "此操作無法復原。請先匯出資料，並移轉或刪除你擁有的小組。線上資料會刪除；加密本機備份最多保留 7 天，還原需套用刪除紀錄。",
+                        "此操作無法復原。請先匯出資料，並移轉或刪除你擁有的小組。線上資料會刪除；加密本機備份最多保留 7 天，還原需套用刪除紀錄。只有 Google 登入的帳號請先在上方重新驗證。",
                       fields: [
-                        {
-                          name: "password",
-                          label: "目前密碼",
-                          type: "password",
-                          required: true,
-                        },
+                        ...(user.hasPassword === false
+                          ? []
+                          : [
+                              {
+                                name: "password",
+                                label: "目前密碼",
+                                type: "password",
+                                required: true,
+                              },
+                            ]),
                         {
                           name: "confirmation",
                           label: "輸入 DELETE 確認",
@@ -3711,6 +3882,6 @@ function App() {
 }
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    {location.pathname.endsWith("/privacy") ? <Privacy /> : <App />}
   </React.StrictMode>,
 );

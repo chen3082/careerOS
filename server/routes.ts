@@ -952,10 +952,15 @@ export async function apiRoutes(app: FastifyInstance) {
         return { ok: true };
       });
       api.post("/grants/:id/revoke", async (req) => {
-        await pool.query(
-          "UPDATE oauth_tokens SET revoked_at=now() WHERE user_id=$1 AND grant_id=$2",
-          [req.user!.id, params(req).id],
-        );
+        await tx(async (db) => {
+          await db.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [
+            req.user!.id,
+          ]);
+          await db.query(
+            "UPDATE oauth_tokens SET revoked_at=now() WHERE user_id=$1 AND grant_id=$2",
+            [req.user!.id, params(req).id],
+          );
+        });
         return { ok: true };
       });
     },

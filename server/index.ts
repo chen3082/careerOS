@@ -15,7 +15,12 @@ import { assetRoutes } from "./assets.js";
 import { mcpRoutes } from "./mcp.js";
 import { googleRoutes } from "./google.js";
 import { accountRoutes } from "./account.js";
-export async function buildApp() {
+import { googleLoginRoutes, type GoogleVerifier } from "./google-login.js";
+export async function buildApp(
+  options: { googleVerifier?: GoogleVerifier } = {},
+) {
+  if (options.googleVerifier && config.NODE_ENV !== "test")
+    throw new Error("Test verifier is forbidden outside tests");
   const app = Fastify({
     trustProxy: (_address, hop) => hop === 0,
     bodyLimit: 1024 * 1024,
@@ -43,10 +48,11 @@ export async function buildApp() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://accounts.google.com/gsi/client"],
+        styleSrc: ["'self'", "https://accounts.google.com/gsi/style"],
         imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "https://accounts.google.com/gsi/"],
+        frameSrc: ["https://accounts.google.com/gsi/"],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
@@ -54,6 +60,7 @@ export async function buildApp() {
         formAction: ["'self'"],
       },
     },
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
   });
   await app.register(multipart, {
     limits: { files: 1, fileSize: 20 * 1024 * 1024 },
@@ -96,6 +103,7 @@ export async function buildApp() {
     return { ok: true, service: "careeros", version: "0.1.0" };
   });
   await authRoutes(app);
+  await googleLoginRoutes(app, options.googleVerifier);
   await apiRoutes(app);
   await groupRoutes(app);
   await assetRoutes(app);

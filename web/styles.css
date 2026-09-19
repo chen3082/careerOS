@@ -1451,3 +1451,26 @@ td .text-button span {
     padding: 10px 0;
   }
 }
+
+.auth-divider {
+  text-align: center;
+  color: var(--muted);
+  margin: 24px 0 16px;
+}
+.google-signin {
+  margin: 16px 0;
+}
+.google-button {
+  min-height: 44px;
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+}
+.google-button.busy {
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+.privacy-page {max-width: 780px; margin: 40px auto; padding: 36px; line-height: 1.8;}
+.privacy-page h2 {margin-top: 28px;}
+@media(max-width: 600px) {.privacy-page {margin: 16px; padding: 20px;}}

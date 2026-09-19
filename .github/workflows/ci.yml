@@ -41,6 +41,7 @@ jobs:
       - run: npm test
       - run: npm run migrate
       - run: npm run test:integration
+      - run: node --import tsx tests/google-login-browser.ts
       - run: node --import tsx tests/browser.ts
       - run: node --import tsx tests/worker-smoke.ts --offline
       - run: npm audit --audit-level=high

@@ -5,11 +5,13 @@ import path from "node:path";
 import { config } from "./config.js";
 import { sameOrigin, requireUser } from "./auth.js";
 import { pool, tx, one, DomainError, audit } from "./db.js";
-import { passwordVerify, passwordHash, encrypt } from "./crypto.js";
+import { passwordHash, encrypt } from "./crypto.js";
+import { verifyAccountProof } from "./google-login.js";
 export async function accountRoutes(app: FastifyInstance) {
   app.get(config.basePath + "/api/account/export", async (req, reply) => {
     const u = await requireUser(req);
     const tables = [
+      "google_identities",
       "sources",
       "facts",
       "career_revisions",
@@ -57,26 +59,31 @@ export async function accountRoutes(app: FastifyInstance) {
     const u = await requireUser(req);
     const b = z
       .object({
-        currentPassword: z.string().max(128),
+        currentPassword: z.string().max(128).optional(),
         newPassword: z.string().min(12).max(128),
       })
       .parse(req.body);
-    const row = await one(pool, "SELECT password_hash FROM users WHERE id=$1", [
-      u.id,
-    ]);
-    if (!(await passwordVerify(b.currentPassword, row.password_hash)))
-      throw new DomainError("INVALID_CREDENTIALS", 401);
     const encoded = await passwordHash(b.newPassword);
     await tx(async (db) => {
+      await db.query("SELECT pg_advisory_xact_lock(813590)");
+      const row = await one(db, "SELECT * FROM users WHERE id=$1 FOR UPDATE", [
+        u.id,
+      ]);
+      if (!row) throw new DomainError("LOGIN_REQUIRED", 401);
+      await verifyAccountProof(db, req, row, b.currentPassword);
       await db.query("UPDATE users SET password_hash=$1 WHERE id=$2", [
         encoded,
         u.id,
       ]);
       await db.query("DELETE FROM sessions WHERE user_id=$1", [u.id]);
+      await db.query("DELETE FROM google_login_challenges WHERE owner_id=$1", [
+        u.id,
+      ]);
       await db.query(
         "UPDATE oauth_tokens SET revoked_at=now() WHERE user_id=$1",
         [u.id],
       );
+      await db.query("DELETE FROM oauth_codes WHERE user_id=$1", [u.id]);
       await audit(db, u.id, "account.password_changed");
     });
     return { ok: true, loginRequired: true };
@@ -86,19 +93,19 @@ export async function accountRoutes(app: FastifyInstance) {
     const u = await requireUser(req);
     const b = z
       .object({
-        password: z.string().max(128),
+        password: z.string().max(128).optional(),
         confirmation: z.literal("DELETE"),
       })
       .parse(req.body);
-    const row = await one(pool, "SELECT password_hash FROM users WHERE id=$1", [
-      u.id,
-    ]);
-    if (!(await passwordVerify(b.password, row.password_hash)))
-      throw new DomainError("INVALID_CREDENTIALS", 401);
     if (u.role === "owner")
       throw new DomainError("TRANSFER_PLATFORM_OWNER_FIRST", 409);
     await tx(async (db) => {
-      await db.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [u.id]);
+      await db.query("SELECT pg_advisory_xact_lock(813590)");
+      const row = await one(db, "SELECT * FROM users WHERE id=$1 FOR UPDATE", [
+        u.id,
+      ]);
+      if (!row) throw new DomainError("LOGIN_REQUIRED", 401);
+      await verifyAccountProof(db, req, row, b.password);
       const owns = await one(
         db,
         "SELECT 1 FROM memberships WHERE user_id=$1 AND role='owner'",

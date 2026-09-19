@@ -20,6 +20,18 @@ const labels: Record<string, string> = {
   API_KEY_REQUIRED: "請先在偏好與連接設定 API key",
   TOO_MANY_ATTEMPTS: "嘗試次數過多，請稍後再試",
   GOOGLE_OAUTH_NOT_CONFIGURED: "Google 連接尚未由管理員設定",
+  GOOGLE_LOGIN_NOT_CONFIGURED: "Google 登入尚未由管理員啟用",
+  GOOGLE_IDENTITY_INVALID: "Google 身份驗證未完成，請重新載入登入按鈕再試",
+  GOOGLE_CHALLENGE_EXPIRED: "Google 登入已逾時或已使用，請重新載入登入按鈕",
+  GOOGLE_ACCOUNT_LINK_REQUIRED:
+    "此 Email 已有 CareerOS 帳號，請先用密碼登入，再到偏好與連接綁定 Google",
+  GOOGLE_ACCOUNT_MISMATCH: "請選擇目前 CareerOS 帳號已綁定的 Google 帳號",
+  GOOGLE_ALREADY_LINKED:
+    "這個 Google 帳號或 CareerOS 帳號已有其他綁定，請核對帳號",
+  GOOGLE_REAUTH_REQUIRED: "請先在帳戶設定重新驗證 Google，再於五分鐘內完成操作",
+  PASSWORD_REQUIRED_BEFORE_UNLINK:
+    "請先設定登入密碼，避免解除 Google 後無法登入",
+  ALREADY_SIGNED_IN: "你已經登入，請重新整理工作台",
   NOT_FOUND: "找不到資料或沒有存取權限",
   FILE_TYPE_OR_SIZE_NOT_ALLOWED: "支援文字、PDF、DOCX 與音檔，單檔最多 20 MB",
   SOURCE_WITHDRAWN_OR_EXPIRED: "履歷引用了已撤回或失效的經驗，請建立新版本",
