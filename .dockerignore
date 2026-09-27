@@ -9,3 +9,5 @@ test-data
 test-restore
 playwright-report
 *.log
+
+tmp

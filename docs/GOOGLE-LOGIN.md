@@ -12,6 +12,14 @@ CareerOS uses Google Identity Services' official button and server-side ID token
 
 Absent configuration, password login remains available and the Google login button is hidden. Existing users must sign in with their password and link Google in Settings; matching emails are never silently merged. New Google users require the same invite/bootstrap policy as password registration. Use the stable verified Google `sub` as identity.
 
+## Diagnosing provider and button failures
+
+`401 invalid_client` with `no registered origin` means the active Web client is missing the website's authorized JavaScript origin. A URL in **Authorized redirect URIs** does not register a JavaScript origin. Inspect the exact Client ID used by the deployed page, add the origin in step 2, save, then retry in a fresh page after Google's settings propagate. Keep unrelated client settings intact.
+
+The official GIS SDK also injects an inline button stylesheet. CareerOS serves each HTML shell with a fresh CSP style nonce and `Cache-Control: no-store`, then gives that nonce to the official script; Google copies it onto its stylesheet. This nonce is separate from the OIDC login challenge. No `unsafe-inline` or `unsafe-eval` is permitted. Root, explicit index, encoded HTML and SPA routes all use the same nonce-aware response path; static assets retain ordinary caching.
+
+Release acceptance must include the **real** Google SDK: verify the button stays at its normal size and complete an actual account sign-in. The synthetic widget test checks CSP behavior and the application flow, but cannot validate Google origins, consent, SDK changes or a real Google session.
+
 ## Security and testing
 
 RS256 JWT signature, Google issuer, exact audience/authorized party, verified email, issued/expiry times, and one-time browser nonce are checked. The test key resolver is constructor-injected only with `NODE_ENV=test`; production always uses Google's fixed HTTPS JWKS endpoint. Challenges expire in five minutes and are bound to an HttpOnly SameSite cookie; link/reauth also bind the original session. Completed challenge records temporarily retain a session hash so a concurrent logout can revoke an in-flight login result.

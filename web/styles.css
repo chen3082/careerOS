@@ -1206,6 +1206,18 @@ td .text-button span {
 .sidebar-close {
   display: none;
 }
+.submission-hash {
+  overflow-wrap: anywhere;
+}
+.submission-review {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  background: #f3f7f5;
+  border-radius: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
 @media (min-width: 1550px) {
   .job-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1512,4 +1524,111 @@ td .text-button span {
 }
 .onboarding-note p {
   margin: 10px 0 0;
+}
+
+.account-dialog {
+  border: 1px solid var(--border, #ddd);
+  color: inherit;
+  max-height: 90vh;
+  margin: auto;
+  overflow-y: auto;
+}
+.account-dialog::backdrop {
+  background: #18201b88;
+}
+.account-dialog form {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0;
+}
+.account-dialog .check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.account-dialog .check input {
+  width: auto;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.account-execution,
+.account-run {
+  margin-top: 20px;
+}
+.account-dialog textarea {
+  width: 100%;
+}
+
+.catalog {
+  display: grid;
+  gap: 16px;
+}
+.catalog-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.catalog-intro p {
+  margin: 8px 0;
+}
+.catalog-intro button {
+  flex-shrink: 0;
+}
+.catalog-sources summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.catalog-source {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line, #e7e5df);
+}
+.catalog-source p {
+  margin: 6px 0;
+}
+.catalog-add {
+  display: grid;
+  gap: 12px;
+  max-width: 440px;
+  margin-top: 20px;
+}
+.catalog-add label {
+  display: grid;
+  gap: 6px;
+}
+.catalog-pagination {
+  justify-content: center;
+  align-items: center;
+  margin: 12px 0;
+}
+.catalog-stale {
+  color: #8c611b;
+}
+.catalog .job-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .catalog-intro,
+  .catalog-source {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .catalog .filters {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .catalog .filters input {
+    grid-column: 1 / -1;
+  }
+  .catalog .filters input,
+  .catalog .filters select {
+    min-width: 0;
+    width: 100%;
+  }
 }

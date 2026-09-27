@@ -21,6 +21,9 @@ const env = z
     OPENAI_MODEL: z.string().min(1).max(160).default("gpt-4.1-mini-2025-04-14"),
     RECOVERY_EPOCH: z.coerce.number().int().positive().default(1),
     SUBMISSIONS_ENABLED: z.string().default("false"),
+    CATALOG_POLLING: z
+      .enum(["true", "false"])
+      .default(process.env.NODE_ENV === "test" ? "false" : "true"),
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
     GOOGLE_LOGIN_CLIENT_ID: z.string().optional(),

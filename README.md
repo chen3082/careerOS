@@ -8,7 +8,8 @@
 |---|---|
 | 經驗庫 | 文字、Markdown、PDF、DOCX、錄音原始素材；AI 草稿經本人確認；不可覆寫的 career revision；Markdown 匯出 |
 | 履歷 | 同一份經驗生成多種方向、中英文、職缺客製；每段引用 fact ID；手動核對文字；新版本另存；固定 PDF／DOCX／Markdown 匯出 |
-| 職缺 | Greenhouse／Lever 指定公司公開職缺、Arbeitnow；關鍵字與市場篩選；任何平台可手動貼上描述／網址；私人分類 |
+| 職缺 | Greenhouse／Lever 指定公司公開職缺、Arbeitnow；共用清單與預設每 6 小時的背景抓取、來源健康、私人收藏與投遞狀態；任何平台可手動匯入。見 [共用清單](docs/SHARED-CATALOG.md) |
+| 個人職缺雷達 | 多組監測條件、去重新職缺提醒與可選 AI 配對已完成設計，**尚未實作**；見 [職缺雷達設計](docs/JOB-RADAR-DESIGN.md) |
 | 申請 | 草稿、指定履歷、準備快照、手動確認；可直接補登站外投遞，選站內履歷／上傳外部 PDF、DOCX／只填名稱；日期、管道與事件追蹤 |
 | 面試與 offer | 正式邀請／輪次／改期；準備與正式面試分開；文字與附件面經；offer 條件版本、期限與本人決定 |
 | 小組 | 單次邀請、共用職缺池、自己的未投／準備狀態、選擇性進度分享、文字面經快照、討論、撤銷與成員管理 |
@@ -16,7 +17,8 @@
 | BYOK | 使用者 OpenAI 或 Anthropic key 進行文字生成；OpenAI key 也可轉錄最多三分鐘音訊；每日 token 預留、費用未知不自動重跑 |
 | 職涯導航 | 根據固定的最多 20 份已保存職缺樣本，提供方向、證據缺口與學習任務；不把缺資料當成缺能力，不宣稱具備未確認技能 |
 | 信箱／日曆 | Google 唯讀整合程式已實作；需營運者提供 OAuth 設定與通過所需驗證，目前未連接真實帳戶。定期同步為待確認訊號，不自行宣稱面試／offer |
-| 自動送出 | **未實作／未啟用。** 需要站點 adapter、獨立 submission journal、恢復對帳及使用者規則驗收，不能只改一個環境變數開啟 |
+| 公司帳戶準備 | 網站提前揭露登入需求、指定網站／Email 授權，具備瀏覽器工具的 MCP 助理協助登入／註冊，驗證接手後可續接；不代管密碼、不是雲端全自動。見 [帳戶準備](docs/APPLICATION_ACCOUNTS.md) |
+| 自動送出 | **正式平台未連接／未啟用。** 已有受控 HTTP receiver 的提交執行器與驗收程式；不能當作 LinkedIn／104 支援。仍需真實站點／帳戶 adapter、獨立 journal 與跨主機恢復，見 [提交驗收範圍](docs/SUBMISSION-ACCEPTANCE.md) |
 | 備份 | 加密本機備份腳本、刪除 ledger 與還原程序；跨主機私有 bucket 依使用者要求延後 |
 
 沒有內建假職缺、假投遞成功或共享平台模型金鑰。ChatGPT／Claude 訂閱與 API 用量分開；MCP 任務可在已連接的 Claude、ChatGPT 或 Codex 對話啟動，連接指引見 [AI-PROVIDERS.md](docs/AI-PROVIDERS.md)。MCP 也不會自行監看使用者硬碟檔案或讀取未授權的對話。
@@ -78,6 +80,7 @@ bash scripts/test-remote.sh
 ## 文件
 
 - [System design](docs/SYSTEM_DESIGN.md)、[contracts](docs/SYSTEM_CONTRACTS.md)、[原始驗收計畫](docs/IMPLEMENTATION_PLAN.md)：完整目標架構；不代表每項已交付。
+- [個人職缺雷達設計](docs/JOB-RADAR-DESIGN.md)與[獨立設計審查](docs/JOB-RADAR-DESIGN-REVIEW.md)：沿用已實作的共用抓取，規劃私人監測、提醒、AI 配對及群組；個人雷達尚未實作。
 - [獨立設計 review](docs/SYSTEM_DESIGN_REVIEW.md)、[實作 review](docs/IMPLEMENTATION_REVIEW.md)。
 - [部署、備份與恢復](docs/DEPLOYMENT.md)、[待辦與上線門檻](docs/TODO.md)。
 - [ApplyPilot 等專案研究](docs/RESEARCH_AND_PLAN.md)：本專案獨立實作，沒有直接複製 ApplyPilot 的投遞程式。

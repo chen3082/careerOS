@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { pool, one, tx, owned, id, DomainError } from "./db.js";
 import { config } from "./config.js";
 import { executeGenerationTask, credential, reserve } from "./ai-generation.js";
+import { runCatalogSource } from "./catalog.js";
 import { searchJobs } from "./connectors.js";
 import { readAsset } from "./assets.js";
 async function parseDocument(t: any) {
@@ -244,8 +245,14 @@ async function schedule() {
 while (!stopped) {
   try {
     await schedule();
-    if (!(await run()))
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+    const worked = await run();
+    if (!stopped)
+      await runCatalogSource(
+        undefined,
+        undefined,
+        config.CATALOG_POLLING === "true",
+      );
+    if (!worked) await new Promise((resolve) => setTimeout(resolve, 1500));
   } catch {
     console.error("WORKER_DATABASE_UNAVAILABLE");
     await new Promise((resolve) => setTimeout(resolve, 5000));

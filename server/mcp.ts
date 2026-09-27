@@ -1,3 +1,10 @@
+import {
+  catalogQuery,
+  listCatalog,
+  catalogSources,
+  requestCatalogRefresh,
+  saveCatalogJob,
+} from "./catalog.js";
 import type { FastifyInstance } from "fastify";
 import express from "express";
 import expressPlugin from "@fastify/express";
@@ -31,6 +38,13 @@ import {
   createApplication,
   newTask,
 } from "./domain.js";
+import {
+  listAccountSetups,
+  claimAccountSetup,
+  accountSetupContext,
+  observeAccountSetup,
+  accountObservationSchema,
+} from "./account-setup.js";
 const scopes = ["careeros:read", "careeros:write"];
 const resource = config.PUBLIC_URL + "/mcp";
 const issuer = config.PUBLIC_URL + "/oauth";
@@ -258,7 +272,7 @@ function createServer(owner: string, granted: string[]) {
   const tool = (
     name: string,
     description: string,
-    schema: Record<string, z.ZodTypeAny>,
+    schema: Record<string, z.ZodTypeAny> | z.AnyZodObject,
     write: boolean,
     fn: (v: any) => Promise<any>,
   ) => {
@@ -453,6 +467,34 @@ function createServer(owner: string, granted: string[]) {
     }),
   );
   tool(
+    "catalog_search",
+    "Search the shared public job catalog. Only your own saved/application state is included. This read never triggers crawling or inference.",
+    catalogQuery.shape,
+    false,
+    (a) => listCatalog(owner, a),
+  );
+  tool(
+    "catalog_sources",
+    "List public job sources, coverage and refresh status.",
+    {},
+    false,
+    () => catalogSources(),
+  );
+  tool(
+    "catalog_refresh",
+    "Queue a public source refresh for everyone; requests share a five-minute cooldown. No AI, credentials or applications are sent.",
+    { sourceId: uuid },
+    true,
+    (a) => requestCatalogRefresh(a.sourceId),
+  );
+  tool(
+    "catalog_save",
+    "Save a public catalog job as your private snapshot before resume generation or applying. Does not submit an application.",
+    { jobId: uuid },
+    true,
+    (a) => tx((db) => saveCatalogJob(db, owner, a.jobId)),
+  );
+  tool(
     "jobs_save",
     "Save a job description to your private job pool.",
     { job: jobSchema, idempotencyKey: z.string().min(8) },
@@ -461,6 +503,34 @@ function createServer(owner: string, granted: string[]) {
       idempotent(owner, "mcp-job", a.idempotencyKey, a, (db) =>
         saveJob(db, owner, a.job),
       ),
+  );
+  tool(
+    "account_setup_list",
+    "List private website-authorized account assistance tasks. waiting_client can be claimed; other states require the user to resume on CareerOS. This server has no browser.",
+    {},
+    false,
+    () => listAccountSetups(owner),
+  );
+  tool(
+    "account_setup_claim",
+    "Claim a waiting account task for your browser tools. Never self-authorize registration or submit a job. Use get_context before any browser action.",
+    { runId: uuid, expectedVersion: z.number().int().nonnegative() },
+    true,
+    (a) => claimAccountSetup(owner, a.runId, a.expectedVersion),
+  );
+  tool(
+    "account_setup_get_context",
+    "Read current account assistance scope and instructions; fails after cancellation, handoff or expiry. Requires a previously claimed task. No passwords or cookies are provided.",
+    { runId: uuid, claimId: uuid },
+    false,
+    (a) => accountSetupContext(owner, a.runId, a.claimId),
+  );
+  tool(
+    "account_setup_report_observation",
+    "Report only an observation from your browser or a required user handoff. account_ready requires the visible intended email and NEVER marks an application submitted. Do not send secrets or raw page contents.",
+    accountObservationSchema,
+    true,
+    (a) => observeAccountSetup(owner, a),
   );
   tool(
     "applications_list",

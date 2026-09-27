@@ -32,6 +32,11 @@ function loadGoogle() {
     script = new Promise<void>((resolve, reject) => {
       const element = document.createElement("script");
       element.src = "https://accounts.google.com/gsi/client";
+      // This is the document's CSP style nonce, separate from the OIDC challenge.
+      // Google's SDK forwards it to the stylesheet it injects for its button.
+      element.nonce =
+        document.querySelector<HTMLMetaElement>('meta[name="csp-style-nonce"]')
+          ?.content ?? "";
       element.async = true;
       const timer = setTimeout(() => {
         element.remove();

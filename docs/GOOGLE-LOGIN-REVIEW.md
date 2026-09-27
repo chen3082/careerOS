@@ -31,7 +31,7 @@ The reviewer confirmed the fixes, cookie delivery to logout, and editable-passwo
 
 ## Remaining provider setup
 
-**Real Google sign-in is not yet verified or enabled.** CareerOS currently has no configured `GOOGLE_LOGIN_CLIENT_ID`; Google Cloud Console requires user login to inspect existing clients. The tests use locally generated RSA keys and a synthetic Google widget, never a real Google credential or a paid provider. Follow [GOOGLE-LOGIN.md](GOOGLE-LOGIN.md) to configure the Web Client ID and authorized JavaScript origin, then perform real-account acceptance. This sign-in setup does not grant Gmail/Calendar access.
+**Historical status at the September 19 review:** real Google sign-in had not been verified or enabled, and no `GOOGLE_LOGIN_CLIENT_ID` was configured yet. See the September 27 incident below for the newer deployment state. Synthetic tests use locally generated RSA keys and a synthetic Google widget, never a real Google credential or a paid provider. Follow [GOOGLE-LOGIN.md](GOOGLE-LOGIN.md) for real-account acceptance. This sign-in setup does not grant Gmail/Calendar access.
 
 ## GCP isolated acceptance
 
@@ -39,3 +39,20 @@ The reviewer confirmed the fixes, cookie delivery to logout, and editable-passwo
 - Report: `careeros-google-qa/test-results/careeros-mcp-e2e-20260919T083355Z-3625702` (private host path; synthetic artifacts copied locally to ignored `test-results/google-login`).
 - 4 unit, 28 integration and 8 Google browser checkpoints passed on PostgreSQL 17. Desktop/mobile screenshots were visually inspected.
 - All 47 runtime/frontend/migration/dependency/test file hashes match the reviewed source. Existing service IDs, start times, restart counts and health remained unchanged; disposable containers and network were verified removed. Test database/files lived only in tmpfs; no production secrets were mounted.
+
+## September 27 incident: origin rejection and oversized Google button
+
+The user reported `401 invalid_client / no registered origin`. Inspection of the actual Google Console Web client confirmed that **Authorized JavaScript origins was empty**, while the application URL was entered under redirect URIs. The deployed client ID matched that client. The correct origin (`https://gptig.allenchencode.com`) was entered in the Console form; saving the new OAuth trust origin is pending the user's browser confirmation. This is still a blocker to real-account acceptance.
+
+Separately, the real GIS SDK injected a button stylesheet blocked by the site's CSP. The official SDK copies `document.currentScript.nonce` onto that stylesheet. The fix generates fresh per-response CSP nonces, serves uncached HTML containing the style nonce, and attaches it to the official SDK script. OIDC challenges, token verification and account policies are unchanged. No `unsafe-inline` or `unsafe-eval` was added.
+
+Independent agent review found no blocking issue. The reviewer independently checked TypeScript and eight HTML/HEAD entry variants, including encoded index paths. All nonce-bearing HTML responses used fresh matching nonces, `no-store`, and no ETag/Last-Modified; static assets retained cache validators.
+
+Verification and deployment:
+
+- Local TypeScript/Vite build passed. The isolated GCP runner passed 4 unit tests, 41 PostgreSQL integration tests and 9 synthetic Google browser checkpoints. A browser assertion verifies nonce-bearing CSS works and nonce-less injected CSS remains blocked.
+- Report: `/home/yehca3144_gmail_com/careeros-login-fix-20260927/test-results/careeros-mcp-e2e-20260927T220441Z-3910862`; local copy is under ignored `test-results/google-login-fix-20260927/report.json`.
+- Deployed web image: `sha256:0ac664cbee391104548ce35f6cbcdd565f7e01ca35c71da90fb9b08837df95c6`. Previous image retained as `careeros:rollback-google-fix-20260927`. No database migration or worker restart.
+- Test cleanup verified. Deployment compared every other container's ID, start time, restart count and health: all unchanged, including CareerOS worker/database and unrelated habit services.
+- **Actual official SDK verified on the production site via Chrome:** Google button height 40px, Google icon 18×18px (previously 380×380px); screenshot visibly shows the normal button. This proves the live styling fix, not successful account sign-in.
+- **Still pending:** save the Console origin, allow propagation, then complete a real Google sign-in and verify the authenticated workspace. No production Google login success is claimed by this report.
