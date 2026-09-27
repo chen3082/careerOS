@@ -23,6 +23,7 @@ import {
   type SubmissionAcceptanceEngine,
 } from "./submissions.js";
 import { SubmissionHandoff } from "./submission-browser.js";
+import { webShell } from "./web-shell.js";
 export async function buildApp(
   options: {
     googleVerifier?: GoogleVerifier;
@@ -55,6 +56,7 @@ export async function buildApp(
   });
   await app.register(cookie);
   await app.register(helmet, {
+    enableCSPNonces: true,
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -138,10 +140,15 @@ export async function buildApp(
       ).rows,
     };
   });
+  const sendShell = webShell();
+  for (const suffix of ["/", "/index.html"])
+    app.get(config.basePath + suffix, async (_req, reply) => sendShell(reply));
   await app.register(staticFiles, {
     root: path.resolve("dist/web"),
     prefix: config.basePath + "/",
-    index: ["index.html"],
+    index: false,
+    // Encoded/alternate HTML paths must also use the nonce-aware shell handler.
+    allowedPath: (pathname) => !pathname.endsWith(".html"),
     wildcard: true,
     list: false,
   });
@@ -154,7 +161,7 @@ export async function buildApp(
       req.url.startsWith(config.basePath + "/") &&
       !req.url.includes("/api/")
     )
-      return reply.sendFile("index.html");
+      return sendShell(reply);
     return reply.code(404).send({ error: "NOT_FOUND" });
   });
   return app;
