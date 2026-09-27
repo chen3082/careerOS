@@ -8,7 +8,8 @@
 |---|---|
 | 經驗庫 | 文字、Markdown、PDF、DOCX、錄音原始素材；AI 草稿經本人確認；不可覆寫的 career revision；Markdown 匯出 |
 | 履歷 | 同一份經驗生成多種方向、中英文、職缺客製；每段引用 fact ID；手動核對文字；新版本另存；固定 PDF／DOCX／Markdown 匯出 |
-| 職缺 | Greenhouse／Lever 指定公司公開職缺、Arbeitnow；關鍵字與市場篩選；任何平台可手動貼上描述／網址；私人分類 |
+| 職缺 | Greenhouse／Lever 指定公司公開職缺、Arbeitnow；共用清單與預設每 6 小時的背景抓取、來源健康、私人收藏與投遞狀態；任何平台可手動匯入。見 [共用清單](docs/SHARED-CATALOG.md) |
+| 個人職缺雷達 | 多組監測條件、去重新職缺提醒與可選 AI 配對已完成設計，**尚未實作**；見 [職缺雷達設計](docs/JOB-RADAR-DESIGN.md) |
 | 申請 | 草稿、指定履歷、準備快照、手動確認；可直接補登站外投遞，選站內履歷／上傳外部 PDF、DOCX／只填名稱；日期、管道與事件追蹤 |
 | 面試與 offer | 正式邀請／輪次／改期；準備與正式面試分開；文字與附件面經；offer 條件版本、期限與本人決定 |
 | 小組 | 單次邀請、共用職缺池、自己的未投／準備狀態、選擇性進度分享、文字面經快照、討論、撤銷與成員管理 |
@@ -79,6 +80,7 @@ bash scripts/test-remote.sh
 ## 文件
 
 - [System design](docs/SYSTEM_DESIGN.md)、[contracts](docs/SYSTEM_CONTRACTS.md)、[原始驗收計畫](docs/IMPLEMENTATION_PLAN.md)：完整目標架構；不代表每項已交付。
+- [個人職缺雷達設計](docs/JOB-RADAR-DESIGN.md)與[獨立設計審查](docs/JOB-RADAR-DESIGN-REVIEW.md)：沿用已實作的共用抓取，規劃私人監測、提醒、AI 配對及群組；個人雷達尚未實作。
 - [獨立設計 review](docs/SYSTEM_DESIGN_REVIEW.md)、[實作 review](docs/IMPLEMENTATION_REVIEW.md)。
 - [部署、備份與恢復](docs/DEPLOYMENT.md)、[待辦與上線門檻](docs/TODO.md)。
 - [ApplyPilot 等專案研究](docs/RESEARCH_AND_PLAN.md)：本專案獨立實作，沒有直接複製 ApplyPilot 的投遞程式。
