@@ -8,6 +8,22 @@ export class ApiError extends Error {
   }
 }
 const labels: Record<string, string> = {
+  CATALOG_SOURCE_UNAVAILABLE:
+    "來源尚未設定或已暫停，請管理員在共用清單新增來源",
+  CATALOG_JOB_UNAVAILABLE: "來源目前未列出這個職缺，請重新載入並確認原始職缺",
+  CATALOG_SOURCE_LIMIT: "已達 50 個來源上限，請先檢查現有來源",
+  CATALOG_SOURCE_EXISTS: "此來源已存在",
+
+  ACCOUNT_SPECIFIC_JOB_REQUIRED: "請使用單一職缺網址，不是公司首頁或動態牆",
+  ACCOUNT_UNSUPPORTED_SITE: "這個網站目前尚未支援帳戶協助",
+  ACCOUNT_SETUP_CLAIMED_OR_CHANGED:
+    "任務已更新或由其他助理領取，請重新檢查狀態",
+  ACCOUNT_SETUP_EXPIRED: "協助授權已過期，請重新授權並安排檢查",
+  ACCOUNT_SETUP_CANCELLED: "這筆協助已停止，請建立新任務",
+  ACCOUNT_TARGET_CHANGED: "職缺網址已變更，請停止舊任務並重新建立",
+  ACCOUNT_ORIGIN_MISMATCH: "助理回報的網站與授權範圍不同",
+  ACCOUNT_IDENTITY_MISMATCH:
+    "登入的 Email 與指定申請人不同，請在原網站切換帳戶",
   LOGIN_REQUIRED: "請先登入",
   INVALID_CREDENTIALS: "Email 或密碼不正確",
   INVITE_REQUIRED: "請輸入有效的工作台邀請碼",
@@ -16,6 +32,12 @@ const labels: Record<string, string> = {
   VERSION_CONFLICT: "這筆資料剛更新，請重試",
   DAILY_BUDGET_REACHED: "已達每日用量上限",
   ALREADY_SUBMITTED: "這個職缺已投遞，已阻止重複操作",
+  LIVE_SUBMISSION_NOT_CONNECTED: "真實平台的投遞尚未連接，沒有送出任何履歷",
+  SUBMISSION_OUTCOME_UNKNOWN: "對方可能已收到，已阻止重送；請先查證結果",
+  SUBMISSION_NOT_SENT: "送出前檢查未通過，沒有執行送出",
+  SUBMISSION_REVIEW_REQUIRED: "請重新核對這次的職缺、文件與表單內容",
+  RESUME_PDF_REQUIRED: "請先產生這份履歷的 PDF",
+  RESUME_REQUIRED: "請先選擇本次使用的履歷",
   RESUME_NEEDS_REVIEW: "請先確認履歷內容與事實來源",
   API_KEY_REQUIRED: "請先在偏好與連接設定 API key",
   TOO_MANY_ATTEMPTS: "嘗試次數過多，請稍後再試",

@@ -15,3 +15,8 @@ test-restore/
 playwright-report/
 .DS_Store
 ._*
+
+tmp/
+
+# Local, user-requested credential handoff; never publish.
+.private-handoff/

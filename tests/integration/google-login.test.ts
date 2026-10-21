@@ -61,6 +61,58 @@ async function login(
   );
 }
 let owner: any;
+test("HTML entry points pair fresh CSP style nonces with uncached shells", async () => {
+  const nonces = new Set<string>();
+  for (const suffix of [
+    "/",
+    "/index.html?login=1",
+    "/%69ndex.html",
+    "/privacy",
+  ]) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const r = await app.inject({
+        method: "GET",
+        url: config.basePath + suffix,
+        headers: {
+          "if-none-match": 'W/"old-static-shell"',
+          "if-modified-since": "Wed, 21 Oct 2037 07:28:00 GMT",
+        },
+      });
+      assert.equal(r.statusCode, 200);
+      assert.match(String(r.headers["content-type"]), /^text\/html/);
+      assert.equal(r.headers["cache-control"], "no-store");
+      assert.equal(r.headers.etag, undefined);
+      assert.equal(r.headers["last-modified"], undefined);
+      const nonce = r.body.match(
+        /name="csp-style-nonce" content="([a-f0-9]{32})"/,
+      )?.[1];
+      assert.ok(nonce);
+      assert.ok(
+        !nonces.has(nonce),
+        "Nonce must change for every HTML response",
+      );
+      nonces.add(nonce);
+      const csp = String(r.headers["content-security-policy"]);
+      const styles = csp.split(";").find((d) => d.startsWith("style-src "))!;
+      assert.ok(styles.includes(`'nonce-${nonce}'`));
+      assert.ok(styles.includes("https://accounts.google.com/gsi/style"));
+      assert.ok(!csp.includes("'unsafe-inline'"));
+      assert.ok(!csp.includes("'unsafe-eval'"));
+      assert.ok(csp.includes("script-src-attr 'none'"));
+    }
+  }
+  const head = await app.inject({ method: "HEAD", url: config.basePath + "/" });
+  assert.equal(head.statusCode, 200);
+  assert.equal(head.body, "");
+  assert.equal(head.headers["cache-control"], "no-store");
+  const html = await app.inject(config.basePath + "/");
+  const asset = html.body.match(/src="([^"]+\/assets\/[^\"]+\.js)"/)?.[1];
+  assert.ok(asset);
+  const script = await app.inject(asset);
+  assert.equal(script.statusCode, 200);
+  assert.match(String(script.headers["content-type"]), /javascript/);
+  assert.ok(script.headers.etag, "Static assets retain their cache validators");
+});
 before(async () => {
   await pool.query(
     "TRUNCATE users,oauth_clients,auth_throttles,google_login_challenges CASCADE",

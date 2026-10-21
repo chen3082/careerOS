@@ -46,7 +46,7 @@ await context.route("**/*", async (route) => {
   if (route.request().url() === "https://accounts.google.com/gsi/client") {
     await route.fulfill({
       contentType: "application/javascript",
-      body: `let options; window.google={accounts:{id:{initialize(o){options=o},renderButton(el){const b=document.createElement('button');b.type='button';b.textContent='Synthetic Google sign-in';b.onclick=async()=>{const o=options;o.callback({credential:await window.syntheticGoogleCredential(o.nonce)})};el.replaceChildren(b)}}}};`,
+      body: `const style=document.createElement('style');style.nonce=document.currentScript.nonce;style.textContent='.google-button button{height:40px;width:280px}';document.head.appendChild(style);const blocked=document.createElement('style');blocked.textContent='.google-button button{height:777px !important}';document.head.appendChild(blocked);let options; window.google={accounts:{id:{initialize(o){options=o},renderButton(el){const b=document.createElement('button');b.type='button';b.textContent='Synthetic Google sign-in';b.onclick=async()=>{const o=options;o.callback({credential:await window.syntheticGoogleCredential(o.nonce)})};el.replaceChildren(b)}}}};`,
     });
   } else if (new URL(route.request().url()).origin === config.origin)
     await route.continue();
@@ -73,6 +73,14 @@ try {
   await page.getByRole("heading", { name: "隱私與帳戶資料" }).waitFor();
   check("Public privacy page available without a session");
   await page.goto(config.PUBLIC_URL + "/");
+  await google().waitFor();
+  assert.equal(
+    await google().evaluate((el) => getComputedStyle(el).height),
+    "40px",
+  );
+  check(
+    "CSP permits nonce-bearing SDK styles and blocks styles without a nonce",
+  );
   await page.getByLabel("工作台邀請碼").fill(config.BOOTSTRAP_TOKEN!);
   await google().click();
   await dashboard();
