@@ -79,6 +79,7 @@ bash scripts/test-remote.sh
 
 ## 文件
 
+- [Claude 開發交接](docs/CLAUDE_HANDOFF.md)：2026-10-20 核對的分支、部署現況、功能界線、登入／投遞卡點與接續步驟。
 - [System design](docs/SYSTEM_DESIGN.md)、[contracts](docs/SYSTEM_CONTRACTS.md)、[原始驗收計畫](docs/IMPLEMENTATION_PLAN.md)：完整目標架構；不代表每項已交付。
 - [個人職缺雷達設計](docs/JOB-RADAR-DESIGN.md)與[獨立設計審查](docs/JOB-RADAR-DESIGN-REVIEW.md)：沿用已實作的共用抓取，規劃私人監測、提醒、AI 配對及群組；個人雷達尚未實作。
 - [獨立設計 review](docs/SYSTEM_DESIGN_REVIEW.md)、[實作 review](docs/IMPLEMENTATION_REVIEW.md)。

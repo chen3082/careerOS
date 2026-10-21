@@ -17,3 +17,6 @@ playwright-report/
 ._*
 
 tmp/
+
+# Local, user-requested credential handoff; never publish.
+.private-handoff/
